@@ -49,9 +49,10 @@ canvas#sky{position:fixed;inset:0;width:100%;height:100%;display:block;touch-act
   border-radius:var(--r);padding:26px;backdrop-filter:blur(18px);
 }
 #gate-card p{font-size:13px;line-height:1.6;color:var(--ink-dim);margin:0 0 14px}
-#gate-card input{width:100%;font:inherit;font-size:14px;color:var(--ink);
+#gate-card input,#gate-card select{width:100%;font:inherit;font-size:14px;color:var(--ink);
   background:rgba(255,255,255,.05);border:1px solid var(--edge);border-radius:9px;padding:11px 12px;outline:none}
-#gate-card input:focus{border-color:var(--accent)}
+#gate-card select{appearance:none;-webkit-appearance:none}
+#gate-card input:focus,#gate-card select:focus{border-color:var(--accent)}
 #gate-card .err{color:var(--danger);font-size:12px;margin-top:10px;line-height:1.5}
 canvas#sky.dragging{cursor:grabbing}
 canvas#sky.over{cursor:pointer}
@@ -213,17 +214,13 @@ input[type=range]{accent-color:var(--accent);padding:0}
 
 <div id="gate">
   <div id="gate-card">
-    <div class="brand" style="font-size:15px;margin-bottom:6px">The Fabric</div>
-    <div id="gate-step-email">
-      <p>Sign in with your email to enter — no password, just a one-click link.</p>
-      <input type="text" id="gate-email" placeholder="you@school.edu" autocomplete="email">
-      <button class="primary" id="gate-send" style="width:100%;margin-top:10px">Send me a link</button>
-      <div class="err" id="gate-err" style="display:none"></div>
-    </div>
-    <div id="gate-step-sent" style="display:none">
-      <p>Check <b id="gate-sentto"></b> for a sign-in link, then open it on this device.</p>
-      <button class="ghost" id="gate-back" style="width:100%">Use a different email</button>
-    </div>
+    <div class="brand" style="font-size:15px;margin-bottom:6px">The Space-Time Fabric</div>
+    <p>Pick your name and set a password the first time — after that, the same
+    name and password gets you back in.</p>
+    <select id="gate-name"></select>
+    <input type="password" id="gate-password" placeholder="Password" autocomplete="current-password" style="margin-top:10px">
+    <button class="primary" id="gate-enter" style="width:100%;margin-top:10px">Enter</button>
+    <div class="err" id="gate-err" style="display:none"></div>
   </div>
 </div>
 
@@ -231,7 +228,7 @@ input[type=range]{accent-color:var(--accent);padding:0}
 
 <div class="hud" id="topleft">
   <div class="brandrow">
-    <div class="brand">The Fabric</div>
+    <div class="brand">The Space-Time Fabric</div>
     <div id="online" style="display:none"><span class="dot"></span><span id="online-n">1</span> here now</div>
   </div>
   <div class="sub" id="status">Waking the grid…</div>
@@ -258,7 +255,7 @@ input[type=range]{accent-color:var(--accent);padding:0}
   <button class="primary" id="addbtn">+ Place something</button>
 </div>
 
-<button id="ambientexit">tap to return</button>
+<button id="ambientexit">click to return</button>
 
 <div id="detail" aria-hidden="true">
   <div class="head">
@@ -315,7 +312,7 @@ Type [[ to connect this to another body in the fabric. Paste links and they beco
   </div>
   <input type="file" id="filepick" accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.mp4,.webm,.pdf">
   <div class="filechip" id="c-filechip"></div>
-  <div class="note">Images, MP4/WebM and PDF upload directly (up to your bucket's 50 MB limit). For MP3 or anything else, paste a URL instead.</div>
+  <div class="note">Images, MP4/WebM and PDF upload directly (50 MB limit). For MP3 or anything else, paste a URL instead.</div>
 
   <div id="c-facerow">
     <label class="f">Show in space as</label>
@@ -325,26 +322,26 @@ Type [[ to connect this to another body in the fabric. Paste links and they beco
 
   <label class="f">How it sits in space</label>
   <div class="row" style="gap:8px">
-    <button type="button" class="ghost" id="c-anchored" style="flex:1 1 0">⚓ Anchored to the fabric</button>
-    <button type="button" class="ghost" id="c-floating" style="flex:1 1 0">✧ Floating free</button>
+    <button type="button" class="ghost" id="c-anchored" style="flex:1 1 0">Anchored to the fabric</button>
+    <button type="button" class="ghost" id="c-floating" style="flex:1 1 0">Floating free</button>
   </div>
-  <div class="note" id="c-modenote">Anchored things rest on the sheet and bend it. Floating things drift nearby instead, like a moon.</div>
+  <div class="note" id="c-modenote">Anchored things rest on the sheet and bend it. Floating things drift nearby instead.</div>
 
   <div id="c-anchoredrow">
-    <label class="f">Mass — how deeply it dents the fabric <span id="c-massval" style="color:var(--ink)"></span></label>
+    <label class="f">Mass: how deeply it dents the fabric <span id="c-massval" style="color:var(--ink)"></span></label>
     <input type="range" id="c-mass" min="0.3" max="8" step="0.1" value="2.5">
   </div>
 
   <div id="c-floatrow" style="display:none">
-    <label class="f">Drift radius — how far it wanders <span id="c-driftval" style="color:var(--ink)"></span></label>
+    <label class="f">Drift radius: how far it wanders <span id="c-driftval" style="color:var(--ink)"></span></label>
     <input type="range" id="c-drift" min="0.3" max="10" step="0.1" value="2.5">
-    <label class="f">Float height — how high above the sheet <span id="c-altval" style="color:var(--ink)"></span></label>
+    <label class="f">Float height: how high above the sheet <span id="c-altval" style="color:var(--ink)"></span></label>
     <input type="range" id="c-alt" min="-10" max="18" step="0.5" value="4">
   </div>
 
-  <label class="f">Size — how large it appears <span id="c-sizeval" style="color:var(--ink)"></span></label>
+  <label class="f">Size: how large it appears <span id="c-sizeval" style="color:var(--ink)"></span></label>
   <input type="range" id="c-size" min="0.3" max="6" step="0.1" value="1.4">
-  <div class="note">Mass and size are independent — a small thing can still bend the fabric a lot, or the reverse.</div>
+  <div class="note">Mass and size are independent (a small thing can still bend the fabric a lot, or the reverse).</div>
 
   <div class="err" id="c-err" style="display:none"></div>
 
@@ -387,6 +384,14 @@ const SUPABASE_URL = "https://ugvhsotwrkydwstynvhx.supabase.co";
 const SUPABASE_KEY = "sb_publishable_dSNKVieNMTfHsvFs-dYk8w_Su4_xlTV";
 const BUCKET = "fabric-media";
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ---- Edit this list to match your classmates' names ----
+const CLASS_NAMES = ["Martina", "Rik", "Krishna", "Jihue", "Julia", "Manas", "Akanksha", "Rishika", "Dária", "Sadie", "Pedro", "Akshat", "Jiin", "Milla"];
+// ----------------------------------------------------------
+
+function nameToEmail(name){
+  return "fabric-" + name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-") + "@class.local";
+}
 
 let presenceChannel = null, dataChannel = null;
 function publicUrl(path){
@@ -771,6 +776,7 @@ function frame(now){
   }
 
   if (S.hasFloaters) needsDraw = true;
+  maybeBroadcastPosition();
 
   if (needsDraw){
     needsDraw = false;
@@ -780,6 +786,7 @@ function frame(now){
     drawGrid();
     drawThreads();
     drawBodies();
+    drawPeers();
   }
   requestAnimationFrame(frame);
 }
@@ -1039,7 +1046,7 @@ function openDetail(e){
   $("#d-title").textContent = e.title || "Untitled";
 
   const meta = $("#d-meta");
-  const who = (S.profiles[e.authorId] && S.profiles[e.authorId].name) || "";
+  const who = e.authorName || "";
   const when = e.createdAt ? new Date(e.createdAt).toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"}) : "";
   meta.textContent = [who ? "placed by " + who : "", when].filter(Boolean).join(" · ");
 
@@ -1329,6 +1336,7 @@ $("#c-save").onclick = async () => {
       const spot = freeSpot();
       body.x = spot.x; body.y = spot.y;
       body.author_id = S.me || null;
+      body.author_name = S.myName || null;
       const { error } = await supabase.from("elements").insert([body]);
       if (error) throw error;
     }
@@ -1426,6 +1434,7 @@ function ingest(rows){
       driftAlt: typeof v.drift_alt === "number" ? Math.max(-14, Math.min(20, v.drift_alt)) : 4,
       url: typeof v.url === "string" ? v.url : "",
       authorId: typeof v.author_id === "string" ? v.author_id : null,
+      authorName: typeof v.author_name === "string" ? v.author_name : null,
       createdAt: typeof v.created_at === "string" ? v.created_at : null
     };
     const kept = keepPos.get(el.id);
@@ -1468,36 +1477,53 @@ async function resolveNames(){
 }
 
 /* ============================================================
-   11. AUTH GATE — sign in with a magic link before anything else
+   11. AUTH GATE — pick a name, set/enter a password
+   The first time a name is used, this claims it (creates the
+   account behind the scenes); after that, the same name+password
+   just logs back in. No email involved anywhere.
    ============================================================ */
-let pendingEmail = "";
-
 function showGate(){ $("#gate").classList.remove("hidden"); }
 function hideGate(){ $("#gate").classList.add("hidden"); }
 
-$("#gate-send").onclick = async () => {
-  const email = $("#gate-email").value.trim();
+(function populateNames(){
+  const sel = $("#gate-name");
+  for (const n of CLASS_NAMES){
+    const opt = document.createElement("option");
+    opt.value = n; opt.textContent = n;
+    sel.appendChild(opt);
+  }
+})();
+
+$("#gate-enter").onclick = async () => {
+  const name = $("#gate-name").value;
+  const password = $("#gate-password").value;
   const err = $("#gate-err"); err.style.display = "none";
-  if (!email || email.indexOf("@") === -1){ err.textContent = "That doesn't look like an email address."; err.style.display = ""; return; }
-  $("#gate-send").disabled = true; $("#gate-send").textContent = "Sending…";
+  if (!password || password.length < 4){ err.textContent = "Use at least 4 characters — first time picks it, every time after checks it."; err.style.display = ""; return; }
+
+  const email = nameToEmail(name);
+  $("#gate-enter").disabled = true; $("#gate-enter").textContent = "…";
   try {
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href } });
-    if (error) throw error;
-    pendingEmail = email;
-    $("#gate-sentto").textContent = email;
-    $("#gate-step-email").style.display = "none";
-    $("#gate-step-sent").style.display = "";
+    let { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error){
+      // wrong password and "doesn't exist yet" look identical on purpose (security) —
+      // so we try claiming the name; if that also fails, the name is taken by someone else
+      const signUp = await supabase.auth.signUp({ email, password });
+      if (signUp.error){
+        throw new Error("Wrong password for “" + name + "”. If this is your first time using it, someone already claimed that name with a different password — try another name.");
+      }
+    }
+    S.myName = name;
+    localStorage.setItem("fabric-name", name);
   } catch (e){
-    err.textContent = e.message || "Couldn't send the link — try again.";
+    err.textContent = e.message || "Couldn't get you in — try again.";
     err.style.display = "";
   } finally {
-    $("#gate-send").disabled = false; $("#gate-send").textContent = "Send me a link";
+    $("#gate-enter").disabled = false; $("#gate-enter").textContent = "Enter";
   }
 };
-$("#gate-back").onclick = () => {
-  $("#gate-step-sent").style.display = "none";
-  $("#gate-step-email").style.display = "";
-};
+
+const savedName = localStorage.getItem("fabric-name");
+if (savedName && CLASS_NAMES.indexOf(savedName) !== -1) $("#gate-name").value = savedName;
 
 /* ============================================================
    12. BOOT
@@ -1506,9 +1532,41 @@ resize();
 buildEmojiRow(); paintEmoji(); paintMass(); paintSize();
 requestAnimationFrame(frame);
 
+let lastPresenceSend = 0;
+function maybeBroadcastPosition(){
+  if (!presenceChannel) return;
+  const now = performance.now();
+  if (now - lastPresenceSend < 700) return;
+  lastPresenceSend = now;
+  presenceChannel.track({ name: S.myName || "someone", x: S.cam.x, y: S.cam.y, z: S.cam.z });
+}
+
+function drawPeers(){
+  if (!presenceChannel) return;
+  const state = presenceChannel.presenceState();
+  for (const key in state){
+    const entries = state[key];
+    if (!entries || !entries.length) continue;
+    const p = entries[entries.length - 1];
+    if (key === S.myPresenceKey) continue;
+    if (typeof p.x !== "number") continue;
+    project(p.x, p.y, (p.z || 0) + 1.6, p0);
+    if (p0[2] < 0) continue;
+    ctx.beginPath(); ctx.arc(p0[0], p0[1], 5, 0, 6.2832);
+    ctx.fillStyle = "#c8ff4d";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,.6)"; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.font = '600 11px "IBM Plex Mono",monospace';
+    ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+    ctx.fillStyle = "#c8ff4d";
+    ctx.fillText(p.name || "someone", p0[0], p0[1] - 8);
+  }
+}
+
 async function startApp(user){
   hideGate();
   S.me = user.id;
+  S.myPresenceKey = user.id;
   S.canWrite = true;
   S.canUpload = true;
   $("#addbtn").style.display = "";
@@ -1527,16 +1585,18 @@ async function startApp(user){
   presenceChannel = supabase.channel("fabric-room", { config: { presence: { key: user.id } } });
   presenceChannel.on("presence", { event: "sync" }, () => {
     n.textContent = Object.keys(presenceChannel.presenceState()).length;
+    needsDraw = true;
   });
   presenceChannel.subscribe(async (status) => {
     badge.classList.toggle("off", status !== "SUBSCRIBED");
-    if (status === "SUBSCRIBED") await presenceChannel.track({ at: new Date().toISOString() });
+    if (status === "SUBSCRIBED") await presenceChannel.track({ name: S.myName || "someone", x: S.cam.x, y: S.cam.y, z: S.cam.z });
   });
 }
 
 (async function boot(){
   const { data: { session } } = await supabase.auth.getSession();
   if (session && session.user){
+    S.myName = savedName || "someone";
     await startApp(session.user);
   } else {
     showGate();
