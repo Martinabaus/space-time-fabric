@@ -1,0 +1,1553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Fabric</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{
+  --void:#000000;
+  --grid:#ffffff;
+  --ink:#f2f4f8;
+  --ink-dim:#9aa3b2;
+  --surface:rgba(14,16,22,.92);
+  --surface-2:rgba(255,255,255,.06);
+  --edge:rgba(255,255,255,.16);
+  --accent:#6fd3ff;
+  --accent-2:#ffd36f;
+  --danger:#ff7a7a;
+  --signal:#c8ff4d;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --r:14px;
+}
+:root:not([data-theme="light"]){ color-scheme:dark; }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ color-scheme:dark; } }
+:root[data-theme="dark"]{ color-scheme:dark; }
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{
+  background:var(--void);
+  color:var(--ink);
+  font-family:"Space Grotesk",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  overflow:hidden;
+  overscroll-behavior:none;
+}
+canvas#sky{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+
+#gate{
+  position:fixed;inset:0;z-index:100;background:#000;
+  display:flex;align-items:center;justify-content:center;padding:20px;
+}
+#gate.hidden{display:none}
+#gate-card{
+  width:min(360px,100%);background:var(--surface);border:1px solid var(--edge);
+  border-radius:var(--r);padding:26px;backdrop-filter:blur(18px);
+}
+#gate-card p{font-size:13px;line-height:1.6;color:var(--ink-dim);margin:0 0 14px}
+#gate-card input{width:100%;font:inherit;font-size:14px;color:var(--ink);
+  background:rgba(255,255,255,.05);border:1px solid var(--edge);border-radius:9px;padding:11px 12px;outline:none}
+#gate-card input:focus{border-color:var(--accent)}
+#gate-card .err{color:var(--danger);font-size:12px;margin-top:10px;line-height:1.5}
+canvas#sky.dragging{cursor:grabbing}
+canvas#sky.over{cursor:pointer}
+
+.hud{position:fixed;z-index:5;pointer-events:none;transition:opacity .5s ease}
+.hud > *{pointer-events:auto}
+body.contemplate .hud{opacity:0;pointer-events:none}
+
+#topleft{top:0;left:0;padding:16px 18px;max-width:min(70vw,420px)}
+.brandrow{display:flex;align-items:center;gap:10px}
+.brand{font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:13px}
+.sub{color:var(--ink-dim);font-size:12px;margin-top:4px;line-height:1.45;font-family:var(--mono)}
+#online{
+  display:inline-flex;align-items:center;gap:6px;
+  border:1.5px solid var(--edge);border-radius:3px;padding:3px 8px 3px 6px;
+  font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--ink);
+  background:rgba(255,255,255,.04);
+}
+#online .dot{width:7px;height:7px;border-radius:50%;background:var(--signal);flex:0 0 auto;animation:blink 1.8s ease-in-out infinite}
+#online.off .dot{background:var(--ink-dim);animation:none}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.28}}
+
+#topright{top:0;right:0;padding:12px 14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;max-width:56vw}
+#bottomright{bottom:0;right:0;padding:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+#bottomleft{bottom:0;left:0;padding:14px;max-width:min(60vw,360px)}
+.hint{color:var(--ink-dim);font-size:11px;line-height:1.5}
+
+button,.btn{
+  font:inherit;font-size:12px;font-weight:600;color:var(--ink);
+  text-transform:uppercase;letter-spacing:.04em;
+  background:var(--surface-2);border:1.5px solid var(--edge);
+  border-radius:3px;padding:9px 14px;cursor:pointer;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  transition:background .12s ease,border-color .12s ease,color .12s ease,transform .08s ease;
+}
+button:hover,.btn:hover{background:var(--ink);color:#040507;border-color:var(--ink)}
+button:active{transform:translateY(1px)}
+button.primary{background:var(--signal);color:#0a1400;border-color:var(--signal);font-weight:700}
+button.primary:hover{background:#e2ff9c;border-color:#e2ff9c;color:#0a1400}
+button.ghost{background:transparent}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.icon{padding:8px 10px;line-height:1;text-transform:none}
+
+#ambientexit{
+  position:fixed;z-index:7;left:50%;bottom:22px;transform:translateX(-50%);
+  opacity:0;pointer-events:none;transition:opacity .6s ease;
+}
+body.contemplate #ambientexit{opacity:.38;pointer-events:auto}
+body.contemplate #ambientexit:hover{opacity:.95}
+
+/* ---------- detail panel ---------- */
+#detail{
+  position:fixed;z-index:20;top:0;right:0;height:100%;width:min(420px,100%);
+  background:var(--surface);border-left:1px solid var(--edge);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  transform:translateX(102%);transition:transform .32s cubic-bezier(.2,.8,.2,1);
+  display:flex;flex-direction:column;
+}
+#detail.open{transform:none}
+#detail .head{display:flex;align-items:flex-start;gap:12px;padding:18px 18px 12px;border-bottom:1px solid var(--edge)}
+#detail .glyph{font-size:30px;line-height:1;flex:0 0 auto}
+#detail h2{margin:0;font-size:19px;font-weight:700;line-height:1.25;word-break:break-word}
+#detail .meta{color:var(--ink-dim);font-size:11px;margin-top:5px}
+#detail .body{padding:16px 18px 28px;overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
+#detail .desc{font-size:14px;line-height:1.65;white-space:pre-wrap;word-break:break-word}
+#detail img.media,#detail video.media{max-width:100%;border-radius:10px;display:block;margin-bottom:14px;background:#111}
+#detail audio.media{width:100%;margin-bottom:14px}
+#detail .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px}
+a{color:var(--accent);word-break:break-word}
+.wikilink{
+  color:var(--accent-2);background:rgba(255,211,111,.12);
+  border:1px solid rgba(255,211,111,.32);border-radius:6px;
+  padding:1px 6px;cursor:pointer;font:inherit;font-size:.94em;
+}
+.wikilink:hover{background:rgba(255,211,111,.24)}
+.wikilink.dead{color:var(--ink-dim);border-color:var(--edge);background:transparent;cursor:default;text-decoration:line-through}
+.backlinks{margin-top:22px;border-top:1px solid var(--edge);padding-top:14px}
+.backlinks h3{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);margin:0 0 9px}
+.backlinks .wikilink{display:inline-block;margin:0 6px 6px 0}
+
+/* ---------- modal ---------- */
+#scrim{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.66);backdrop-filter:blur(3px);display:none}
+#scrim.open{display:block}
+#compose{
+  position:fixed;z-index:31;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(560px,calc(100% - 28px));max-height:min(88vh,780px);overflow-y:auto;
+  background:var(--surface);border:1px solid var(--edge);border-radius:var(--r);
+  padding:20px;display:none;backdrop-filter:blur(18px);
+}
+#compose.open{display:block}
+#compose h2{margin:0 0 16px;font-size:16px;letter-spacing:.06em;text-transform:uppercase}
+label.f{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);margin:14px 0 6px}
+input[type=text],textarea,select{
+  width:100%;font:inherit;font-size:14px;color:var(--ink);
+  background:rgba(255,255,255,.05);border:1px solid var(--edge);
+  border-radius:9px;padding:10px 12px;outline:none;
+}
+input[type=text]:focus,textarea:focus{border-color:var(--accent)}
+textarea{min-height:110px;resize:vertical;line-height:1.55}
+.emojirow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.emojirow button{font-size:20px;padding:5px 8px;border-radius:9px;background:transparent}
+.emojirow button.on{background:rgba(111,211,255,.2);border-color:var(--accent)}
+.emojirow input{width:64px;text-align:center;font-size:20px;padding:5px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row > *{flex:1 1 auto}
+input[type=range]{accent-color:var(--accent);padding:0}
+#filepick{display:none}
+.filechip{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-dim);margin-top:8px}
+.foot{display:flex;gap:9px;justify-content:flex-end;margin-top:22px;flex-wrap:wrap}
+.err{color:var(--danger);font-size:12px;margin-top:10px;line-height:1.5}
+.note{color:var(--ink-dim);font-size:11px;margin-top:7px;line-height:1.5}
+
+#listpanel{
+  position:fixed;z-index:25;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(420px,calc(100% - 28px));max-height:min(74vh,620px);
+  background:var(--surface);border:1px solid var(--edge);border-radius:var(--r);
+  display:none;flex-direction:column;overflow:hidden;backdrop-filter:blur(18px);
+}
+#listpanel.open{display:flex}
+#listpanel .lp-head{display:flex;gap:8px;align-items:center;padding:14px 14px 10px;border-bottom:1px solid var(--edge)}
+#listpanel .lp-head input{flex:1}
+#lp-list{overflow-y:auto;padding:8px}
+.lp-row{
+  display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:8px;cursor:pointer;text-align:left;
+  width:100%;background:transparent;border:0;color:var(--ink);font:inherit;
+}
+.lp-row:hover{background:rgba(255,255,255,.08)}
+.lp-row .glyph{font-size:19px;flex:0 0 auto;width:24px;text-align:center}
+.lp-row .info{min-width:0;flex:1}
+.lp-row .name{font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lp-row .tag{font-family:var(--mono);font-size:10px;color:var(--ink-dim);margin-top:2px}
+.lp-empty{color:var(--ink-dim);font-size:12.5px;padding:20px 10px;text-align:center}
+
+#linkmenu{
+  position:absolute;z-index:40;background:#11141b;border:1px solid var(--edge);
+  border-radius:10px;padding:5px;max-height:190px;overflow-y:auto;display:none;min-width:200px;
+  box-shadow:0 12px 34px rgba(0,0,0,.6);
+}
+#linkmenu.open{display:block}
+#linkmenu button{display:block;width:100%;text-align:left;border:0;background:transparent;border-radius:7px;padding:7px 9px;font-size:13px}
+#linkmenu button:hover{background:rgba(255,255,255,.1)}
+
+#toast{
+  position:fixed;z-index:50;left:50%;bottom:26px;transform:translate(-50%,16px);
+  background:#11141b;border:1px solid var(--edge);border-radius:999px;
+  padding:9px 17px;font-size:13px;opacity:0;transition:.25s ease;pointer-events:none;max-width:90vw;text-align:center;
+}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media (max-width:560px){
+  #topleft{padding:12px 14px}
+  #bottomleft{display:none}
+  #detail{width:100%}
+  .brand{font-size:12px}
+}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div id="gate-card">
+    <div class="brand" style="font-size:15px;margin-bottom:6px">The Fabric</div>
+    <div id="gate-step-email">
+      <p>Sign in with your email to enter — no password, just a one-click link.</p>
+      <input type="text" id="gate-email" placeholder="you@school.edu" autocomplete="email">
+      <button class="primary" id="gate-send" style="width:100%;margin-top:10px">Send me a link</button>
+      <div class="err" id="gate-err" style="display:none"></div>
+    </div>
+    <div id="gate-step-sent" style="display:none">
+      <p>Check <b id="gate-sentto"></b> for a sign-in link, then open it on this device.</p>
+      <button class="ghost" id="gate-back" style="width:100%">Use a different email</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="sky"></canvas>
+
+<div class="hud" id="topleft">
+  <div class="brandrow">
+    <div class="brand">The Fabric</div>
+    <div id="online" style="display:none"><span class="dot"></span><span id="online-n">1</span> here now</div>
+  </div>
+  <div class="sub" id="status">Waking the grid…</div>
+</div>
+
+<div class="hud" id="topright">
+  <button class="icon ghost" id="up" title="Rise">⬆</button>
+  <button class="icon ghost" id="down" title="Descend">⬇</button>
+  <button class="icon ghost" id="recenter" title="Recenter">⌖</button>
+  <button class="icon ghost" id="zoomout" title="Zoom out">−</button>
+  <button class="icon ghost" id="zoomin" title="Zoom in">+</button>
+</div>
+
+<div class="hud" id="bottomleft">
+  <div class="hint">
+    Drag to orbit · two fingers (or scroll / pinch) to pan and zoom ·
+    click a body to open it · drag a body to move it, the fabric bends with it.
+  </div>
+</div>
+
+<div class="hud" id="bottomright">
+  <button class="ghost" id="listbtn">☰ Find</button>
+  <button class="ghost" id="contemplatebtn">◎ Contemplate</button>
+  <button class="primary" id="addbtn">+ Place something</button>
+</div>
+
+<button id="ambientexit">tap to return</button>
+
+<div id="detail" aria-hidden="true">
+  <div class="head">
+    <div class="glyph" id="d-glyph">✦</div>
+    <div style="flex:1;min-width:0">
+      <h2 id="d-title">—</h2>
+      <div class="meta" id="d-meta"></div>
+    </div>
+    <button class="icon ghost" id="d-close" title="Close">✕</button>
+  </div>
+  <div class="body">
+    <div id="d-media"></div>
+    <div class="desc" id="d-desc"></div>
+    <div class="backlinks" id="d-backlinks" style="display:none">
+      <h3>Pulled toward this</h3>
+      <div id="d-backlist"></div>
+    </div>
+    <div class="actions" id="d-actions"></div>
+  </div>
+</div>
+
+<div id="scrim"></div>
+
+<div id="listpanel" role="dialog" aria-modal="true">
+  <div class="lp-head">
+    <input type="text" id="lp-search" placeholder="Search by title…" autocomplete="off">
+    <button class="icon ghost" id="lp-close" title="Close">✕</button>
+  </div>
+  <div id="lp-list"></div>
+</div>
+
+<div id="compose" role="dialog" aria-modal="true">
+  <h2 id="c-heading">Place something in the fabric</h2>
+
+  <label class="f">Its mark</label>
+  <div class="emojirow" id="c-emojis"></div>
+
+  <label class="f">Title</label>
+  <input type="text" id="c-title" maxlength="80" placeholder="Workshop at the old harbour" autocomplete="off">
+
+  <label class="f">Description</label>
+  <textarea id="c-desc" placeholder="What happened here.
+
+Type [[ to connect this to another body in the fabric. Paste links and they become clickable."></textarea>
+  <div class="row" style="margin-top:8px">
+    <button class="ghost" id="c-insertlink" style="flex:0 0 auto">⟶ Connect to…</button>
+    <span class="note" style="flex:1 1 120px;margin:0">Connections draw a thread in space.</span>
+  </div>
+
+  <label class="f">Media</label>
+  <div class="row">
+    <button class="ghost" id="c-choosefile" style="flex:0 0 auto">Choose file</button>
+    <input type="text" id="c-url" placeholder="…or paste a URL (video, sound, anything)">
+  </div>
+  <input type="file" id="filepick" accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.mp4,.webm,.pdf">
+  <div class="filechip" id="c-filechip"></div>
+  <div class="note">Images, MP4/WebM and PDF upload directly (up to your bucket's 50 MB limit). For MP3 or anything else, paste a URL instead.</div>
+
+  <div id="c-facerow">
+    <label class="f">Show in space as</label>
+    <div class="row" id="c-faceoptions" style="gap:8px"></div>
+    <div class="note">This only decides what floats in the fabric — everything you attach is still there when someone opens it.</div>
+  </div>
+
+  <label class="f">How it sits in space</label>
+  <div class="row" style="gap:8px">
+    <button type="button" class="ghost" id="c-anchored" style="flex:1 1 0">⚓ Anchored to the fabric</button>
+    <button type="button" class="ghost" id="c-floating" style="flex:1 1 0">✧ Floating free</button>
+  </div>
+  <div class="note" id="c-modenote">Anchored things rest on the sheet and bend it. Floating things drift nearby instead, like a moon.</div>
+
+  <div id="c-anchoredrow">
+    <label class="f">Mass — how deeply it dents the fabric <span id="c-massval" style="color:var(--ink)"></span></label>
+    <input type="range" id="c-mass" min="0.3" max="8" step="0.1" value="2.5">
+  </div>
+
+  <div id="c-floatrow" style="display:none">
+    <label class="f">Drift radius — how far it wanders <span id="c-driftval" style="color:var(--ink)"></span></label>
+    <input type="range" id="c-drift" min="0.3" max="10" step="0.1" value="2.5">
+    <label class="f">Float height — how high above the sheet <span id="c-altval" style="color:var(--ink)"></span></label>
+    <input type="range" id="c-alt" min="-10" max="18" step="0.5" value="4">
+  </div>
+
+  <label class="f">Size — how large it appears <span id="c-sizeval" style="color:var(--ink)"></span></label>
+  <input type="range" id="c-size" min="0.3" max="6" step="0.1" value="1.4">
+  <div class="note">Mass and size are independent — a small thing can still bend the fabric a lot, or the reverse.</div>
+
+  <div class="err" id="c-err" style="display:none"></div>
+
+  <div class="foot">
+    <button class="ghost" id="c-delete" style="display:none;color:var(--danger)">Remove</button>
+    <button class="ghost" id="c-cancel">Cancel</button>
+    <button class="primary" id="c-save">Place it</button>
+  </div>
+</div>
+
+<div id="linkmenu"></div>
+<div id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   1. STATE
+   ============================================================ */
+const EMOJIS = ["✦","🌍","🐬","✉️","☁️","🎧","📷","🎬","📄","🛠️","🌱","🔥","🪐","🎪","📻","🧭","🐚","🕯️","🎨","💬"];
+
+const S = {
+  els: [],
+  byId: new Map(),
+  byTitle: new Map(),
+  cam: { x:0, y:0, z:0, yaw:0, elev:0.55, dist:26 },
+  anim: null,           // {from:{...}, to:{...}, t0, dur}
+  focal: 780,
+  open: null,
+  hover: null,
+  editing: null,
+  contemplate: false,
+  me: null, canWrite: true, canUpload: false,
+  profiles: {},
+  W: 0, H: 0, dpr: 1
+};
+
+const SUPABASE_URL = "https://ugvhsotwrkydwstynvhx.supabase.co";
+const SUPABASE_KEY = "sb_publishable_dSNKVieNMTfHsvFs-dYk8w_Su4_xlTV";
+const BUCKET = "fabric-media";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let presenceChannel = null, dataChannel = null;
+function publicUrl(path){
+  return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+}
+const imgCache = new Map();
+
+const $ = s => document.querySelector(s);
+const cv = $("#sky"), ctx = cv.getContext("2d", {alpha:false});
+
+/* ============================================================
+   2. CAMERA — full orbit: yaw (azimuth), elevation, distance,
+   a free 3D target point. This is what lets you fly around the
+   fabric instead of only panning across a fixed-angle view.
+   ============================================================ */
+const ELEV_LIMIT = 1.45; // just short of the poles, avoids gimbal lock
+
+let eye = [0,0,0], fwd = [0,1,0], right = [1,0,0], up = [0,0,1];
+
+function computeBasis(){
+  const c = S.cam;
+  const ce = Math.cos(c.elev), se = Math.sin(c.elev);
+  const sy = Math.sin(c.yaw), cy = Math.cos(c.yaw);
+  // direction FROM eye TO target
+  const f = [ -ce*sy, -ce*cy, -se ];
+  eye = [ c.x - f[0]*c.dist, c.y - f[1]*c.dist, c.z - f[2]*c.dist ];
+  fwd = f;
+  let rx = f[1]*0 - f[2]*1, ry = f[2]*0 - f[0]*0, rz = f[0]*1 - f[1]*0; // fwd x worldUp(0,0,1)
+  rx = f[1]*1 - f[2]*0; ry = f[2]*0 - f[0]*1; rz = f[0]*0 - f[1]*0;
+  let rl = Math.hypot(rx,ry,rz) || 1;
+  right = [rx/rl, ry/rl, rz/rl];
+  up = [
+    right[1]*fwd[2]-right[2]*fwd[1],
+    right[2]*fwd[0]-right[0]*fwd[2],
+    right[0]*fwd[1]-right[1]*fwd[0]
+  ];
+}
+
+function project(X,Y,Z,out){
+  const rx=X-eye[0], ry=Y-eye[1], rz=Z-eye[2];
+  const cz = rx*fwd[0]+ry*fwd[1]+rz*fwd[2];
+  if (cz < 0.6){ out[2] = -1; return out; }
+  const cx = rx*right[0]+ry*right[1]+rz*right[2];
+  const cy = rx*up[0]+ry*up[1]+rz*up[2];
+  out[0] = S.W/2 + S.focal*cx/cz;
+  out[1] = S.H/2 - S.focal*cy/cz;
+  out[2] = cz;
+  return out;
+}
+
+// ray from a screen point, intersected with the horizontal plane z = z0
+function screenToGround(sx, sy, z0){
+  const ndcX = sx - S.W/2, ndcY = S.H/2 - sy;
+  const dx = right[0]*ndcX + up[0]*ndcY + fwd[0]*S.focal;
+  const dy = right[1]*ndcX + up[1]*ndcY + fwd[1]*S.focal;
+  const dz = right[2]*ndcX + up[2]*ndcY + fwd[2]*S.focal;
+  if (Math.abs(dz) < 1e-5) return null;
+  const t = (z0 - eye[2]) / dz;
+  if (t <= 0) return null;
+  return { x: eye[0] + dx*t, y: eye[1] + dy*t };
+}
+
+function wrapAngle(a){ while(a > Math.PI) a -= 6.2832; while(a < -Math.PI) a += 6.2832; return a; }
+
+function flyTo(to, dur){
+  const from = { x:S.cam.x, y:S.cam.y, z:S.cam.z, yaw:S.cam.yaw, elev:S.cam.elev, dist:S.cam.dist };
+  const target = Object.assign({}, from, to);
+  target.yaw = from.yaw + wrapAngle(target.yaw - from.yaw); // shortest path
+  S.anim = { from, to: target, t0: performance.now(), dur: dur || 550 };
+  needsDraw = true;
+}
+
+/* ============================================================
+   3. THE FABRIC — height field. Unbounded: any x,y is valid,
+   nothing clips or wraps, so the space is effectively infinite.
+   ============================================================ */
+const SOFT = 2.0, REACH = 30, REACH2 = REACH*REACH, MASS_K = 2.5;
+
+function heightAt(x, y){
+  let z = 0;
+  const els = S.els;
+  for (let i = 0; i < els.length; i++){
+    const e = els[i];
+    if (e.floatMode) continue; // floating bodies have no mass on the sheet
+    const dx = x - e.x, dy = y - e.y;
+    const r2 = dx*dx + dy*dy;
+    if (r2 > REACH2) continue;
+    const base = e.mass * MASS_K * SOFT / Math.sqrt(r2 + SOFT*SOFT);
+    // taper smoothly through the outer 35% of reach — no hard edge, no ring
+    const edge = Math.sqrt(r2) / REACH;
+    const fade = edge <= 0.65 ? 1 : Math.max(0, 1 - (edge-0.65)/0.35);
+    z -= base * (fade*fade*(3 - 2*fade));
+  }
+  return z;
+}
+function hoverOf(e){ return 1.0 + e.mass * 0.6; }
+function sizeOf(e){ return e.size || 1.4; }
+
+/* Floating bodies orbit their anchor point instead of resting on the
+   dented surface — no db writes needed for the motion itself: every
+   viewer derives the same position from the wall clock and the
+   element's id, so it stays in sync with no network traffic. */
+function hashStr(s){
+  let h = 0;
+  for (let i = 0; i < s.length; i++){ h = (h*31 + s.charCodeAt(i)) | 0; }
+  return Math.abs(h);
+}
+let clockNow = Date.now();
+
+function worldPos(e){
+  if (!e.floatMode){
+    return { x: e.x, y: e.y, z: heightAt(e.x, e.y) + hoverOf(e), ground: heightAt(e.x, e.y) };
+  }
+  const h = hashStr(e.id);
+  const speed = (0.05 + (h % 1000) / 1000 * 0.09) * ((h % 2) ? 1 : -1);
+  const phase = (h % 6283) / 1000;
+  const r = e.driftRadius || 2.5;
+  const alt = e.driftAlt || 4;
+  const vertAmp = 0.5 + (h % 700) / 1000;
+  const t = clockNow / 1000;
+  const ang = phase + t * speed;
+  return {
+    x: e.x + Math.cos(ang) * r,
+    y: e.y + Math.sin(ang) * r,
+    z: alt + Math.sin(t * speed * 1.7 + phase) * vertAmp,
+    ground: null
+  };
+}
+
+/* ============================================================
+   4. DRAW
+   ============================================================ */
+const p0 = [0,0,0], p1 = [0,0,0];
+
+function resize(){
+  S.dpr = Math.min(window.devicePixelRatio || 1, 2);
+  S.W = cv.clientWidth; S.H = cv.clientHeight;
+  cv.width = Math.round(S.W * S.dpr);
+  cv.height = Math.round(S.H * S.dpr);
+  ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
+  S.focal = Math.max(520, Math.min(S.W, S.H) * 1.15);
+}
+
+function drawGrid(){
+  const step = S.cam.dist > 44 ? 2 : 1;
+  const ext  = Math.max(16, Math.min(70, S.cam.dist * 1.9));
+  const samp = step / 3;
+  const cx = Math.round(S.cam.x / step) * step;
+  const cy = Math.round(S.cam.y / step) * step;
+
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  for (let axis = 0; axis < 2; axis++){
+    for (let o = -ext; o <= ext; o += step){
+      const fixed = (axis ? cx : cy) + o;
+      let started = false;
+      ctx.beginPath();
+      for (let t = -ext; t <= ext + 1e-9; t += samp){
+        const x = axis ? fixed : (cx + t);
+        const y = axis ? (cy + t) : fixed;
+        const z = heightAt(x, y);
+        project(x, y, z, p0);
+        if (p0[2] < 0){ started = false; continue; }
+        if (!started){ ctx.moveTo(p0[0], p0[1]); started = true; }
+        else ctx.lineTo(p0[0], p0[1]);
+      }
+      const dep = Math.abs(o) / ext;
+      ctx.strokeStyle = "rgba(255,255,255," + (0.62 * (1 - dep*0.78)).toFixed(3) + ")";
+      ctx.lineWidth = Math.max(0.6, 1.5 * (1 - dep*0.45));
+      ctx.stroke();
+    }
+  }
+}
+
+function drawThreads(){
+  ctx.lineWidth = 1.1;
+  for (const e of S.els){
+    for (const targetTitle of e._links){
+      const t = S.byTitle.get(targetTitle);
+      if (!t || t.id === e.id) continue;
+      const pe = worldPos(e), pt = worldPos(t);
+      const lit = S.open && (S.open.id === e.id || S.open.id === t.id);
+      ctx.beginPath();
+      let on = false;
+      const N = 26;
+      for (let i = 0; i <= N; i++){
+        const u = i / N;
+        const x = pe.x + (pt.x - pe.x) * u;
+        const y = pe.y + (pt.y - pe.y) * u;
+        const z = pe.z + (pt.z - pe.z) * u + Math.sin(u * Math.PI) * 1.5;
+        project(x, y, z, p0);
+        if (p0[2] < 0){ on = false; continue; }
+        if (!on){ ctx.moveTo(p0[0], p0[1]); on = true; } else ctx.lineTo(p0[0], p0[1]);
+      }
+      ctx.strokeStyle = lit ? "rgba(255,211,111,.85)" : "rgba(255,211,111,.26)";
+      ctx.stroke();
+    }
+  }
+}
+
+function drawBodies(){
+  const drawn = [];
+  for (const e of S.els){
+    const pos = worldPos(e);
+    project(pos.x, pos.y, pos.z, p0);
+    if (p0[2] < 0) continue;
+    const hasGround = pos.ground !== null;
+    if (hasGround) project(pos.x, pos.y, pos.ground, p1);
+    const size = Math.max(12, Math.min(340, S.focal * (0.16 + sizeOf(e)*0.30) / p0[2]));
+    e._sx = p0[0]; e._sy = p0[1]; e._sz = p0[2]; e._size = size; e._wx = pos.x; e._wy = pos.y; e._wz = pos.z;
+    drawn.push({e, sx:p0[0], sy:p0[1], depth:p0[2], size, gx: hasGround?p1[0]:0, gy: hasGround?p1[1]:0, gok: hasGround && p1[2] > 0});
+  }
+  drawn.sort((a,b) => b.depth - a.depth);
+
+  for (const d of drawn){
+    const {e, sx, sy, size} = d;
+    const isOpen = S.open && S.open.id === e.id;
+    const isHover = S.hover && S.hover.id === e.id;
+
+    if (d.gok){
+      ctx.beginPath();
+      ctx.moveTo(sx, sy + size*0.34);
+      ctx.lineTo(d.gx, d.gy);
+      ctx.strokeStyle = isOpen ? "rgba(111,211,255,.55)" : "rgba(255,255,255,.2)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    const draw = faceDrawable(e);
+    let mediaW = 0, mediaH = 0;
+    if (draw){
+      const ar = draw.w / draw.h;
+      mediaW = ar >= 1 ? size : size*ar; mediaH = ar >= 1 ? size/ar : size;
+      ctx.save();
+      roundRect(ctx, sx - mediaW/2, sy - mediaH/2, mediaW, mediaH, Math.min(10, size*0.13));
+      ctx.clip();
+      ctx.drawImage(draw.el, sx - mediaW/2, sy - mediaH/2, mediaW, mediaH);
+      ctx.restore();
+      ctx.strokeStyle = isOpen ? "rgba(111,211,255,.9)" : "rgba(255,255,255,.35)";
+      ctx.lineWidth = isOpen ? 2 : 1;
+      roundRect(ctx, sx - mediaW/2, sy - mediaH/2, mediaW, mediaH, Math.min(10, size*0.13));
+      ctx.stroke();
+      if (e.face === "video"){
+        // small play mark so a still frame doesn't read as a photo
+        const pr = Math.max(7, size*0.12);
+        ctx.beginPath(); ctx.arc(sx, sy, pr, 0, 6.2832);
+        ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(sx - pr*0.32, sy - pr*0.45);
+        ctx.lineTo(sx - pr*0.32, sy + pr*0.45);
+        ctx.lineTo(sx + pr*0.5, sy);
+        ctx.closePath();
+        ctx.fillStyle = "#fff"; ctx.fill();
+      }
+    } else if (e.face === "text"){
+      const cw = Math.max(size*1.7, 60), ch = Math.max(size*0.9, 34);
+      ctx.save();
+      roundRect(ctx, sx - cw/2, sy - ch/2, cw, ch, 9);
+      ctx.fillStyle = isOpen ? "rgba(111,211,255,.16)" : "rgba(255,255,255,.07)";
+      ctx.fill();
+      ctx.strokeStyle = isOpen ? "rgba(111,211,255,.75)" : "rgba(255,255,255,.28)";
+      ctx.lineWidth = isOpen ? 1.6 : 1;
+      roundRect(ctx, sx - cw/2, sy - ch/2, cw, ch, 9);
+      ctx.stroke();
+      ctx.restore();
+      ctx.font = '600 ' + Math.max(11, Math.min(20, size*0.24)) + 'px "Space Grotesk",sans-serif';
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillStyle = "#f2f4f8";
+      ctx.fillText(clip(e.title || "untitled", 22), sx, sy);
+      mediaW = cw; mediaH = ch;
+    } else {
+      ctx.font = size + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(e.emoji || "✦", sx, sy);
+    }
+
+    // the mark rides along on a badge when media (not the mark) is the face
+    if (mediaW && e.face !== "text"){
+      const br = Math.max(9, size*0.19);
+      const bx = sx + mediaW/2 - br*0.55, by = sy + mediaH/2 - br*0.55;
+      ctx.beginPath(); ctx.arc(bx, by, br, 0, 6.2832);
+      ctx.fillStyle = "rgba(17,20,27,.82)"; ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,.4)"; ctx.lineWidth = 1; ctx.stroke();
+      ctx.font = (br*1.25) + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(e.emoji || "✦", bx, by + br*0.05);
+    }
+
+    if (!draw && e.face !== "text" && (e.assetId || e.url)){
+      const br = Math.max(7, size*0.13);
+      const bx = sx + size*0.32, by = sy - size*0.32;
+      ctx.beginPath(); ctx.arc(bx, by, br, 0, 6.2832);
+      ctx.fillStyle = "rgba(17,20,27,.82)"; ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,.4)"; ctx.lineWidth = 1; ctx.stroke();
+      ctx.font = (br*1.15) + 'px sans-serif';
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("📎", bx, by + br*0.05);
+    }
+
+    if (size > 26){
+      ctx.font = '500 ' + Math.max(10, Math.min(15, size*0.19)) + 'px "Space Grotesk",sans-serif';
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
+      ctx.fillStyle = isOpen ? "#6fd3ff" : "rgba(242,244,248,.82)";
+      ctx.fillText(clip(e.title || "untitled", 26), sx, sy + (mediaH ? mediaH/2 : size/2) + 6);
+    }
+  }
+}
+
+function roundRect(c,x,y,w,h,r){
+  c.beginPath();
+  c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r);
+  c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath();
+}
+function clip(s,n){ return s.length > n ? s.slice(0,n-1) + "…" : s; }
+function isImageType(t){ return !!t && t.indexOf("image/") === 0; }
+function getImage(id){
+  let im = imgCache.get(id);
+  if (!im){
+    im = new Image();
+    im.onload = () => { needsDraw = true; };
+    im.onerror = () => {};
+    im.src = publicUrl(id);
+    imgCache.set(id, im);
+  }
+  return im;
+}
+
+const vidCache = new Map();
+function getVideoThumb(id){
+  let entry = vidCache.get(id);
+  if (!entry){
+    const v = document.createElement("video");
+    v.muted = true; v.playsInline = true; v.preload = "metadata"; v.src = publicUrl(id);
+    const canvas = document.createElement("canvas");
+    entry = { canvas, ready: false };
+    v.addEventListener("loadeddata", () => {
+      try { v.currentTime = Math.min(0.4, (v.duration || 1) * 0.3); } catch(_){ }
+    });
+    v.addEventListener("seeked", () => {
+      canvas.width = v.videoWidth || 320; canvas.height = v.videoHeight || 180;
+      try { canvas.getContext("2d").drawImage(v, 0, 0, canvas.width, canvas.height); entry.ready = true; needsDraw = true; } catch(_){ }
+    });
+    v.addEventListener("error", () => {});
+    vidCache.set(id, entry);
+  }
+  return entry;
+}
+
+function faceDrawable(e){
+  if (e.face === "image" && e.assetId && isImageType(e.assetType)){
+    const im = getImage(e.assetId);
+    if (im.complete && im.naturalWidth) return { el: im, w: im.naturalWidth, h: im.naturalHeight };
+  } else if (e.face === "video" && e.assetId && isVideoType(e.assetType)){
+    const vt = getVideoThumb(e.assetId);
+    if (vt.ready) return { el: vt.canvas, w: vt.canvas.width, h: vt.canvas.height };
+  }
+  return null;
+}
+
+let needsDraw = true, lastT = performance.now();
+function frame(now){
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+  clockNow = Date.now();
+
+  if (S.anim){
+    const a = S.anim;
+    const u = Math.min(1, (now - a.t0) / a.dur);
+    const ease = u<0.5 ? 2*u*u : 1-Math.pow(-2*u+2,2)/2;
+    S.cam.x = a.from.x + (a.to.x - a.from.x)*ease;
+    S.cam.y = a.from.y + (a.to.y - a.from.y)*ease;
+    S.cam.z = a.from.z + (a.to.z - a.from.z)*ease;
+    S.cam.yaw = a.from.yaw + (a.to.yaw - a.from.yaw)*ease;
+    S.cam.elev = a.from.elev + (a.to.elev - a.from.elev)*ease;
+    S.cam.dist = a.from.dist + (a.to.dist - a.from.dist)*ease;
+    needsDraw = true;
+    if (u >= 1) S.anim = null;
+  } else if (S.contemplate && pointers.size === 0){
+    S.cam.yaw += dt * 0.045;
+    needsDraw = true;
+  }
+
+  if (S.hasFloaters) needsDraw = true;
+
+  if (needsDraw){
+    needsDraw = false;
+    computeBasis();
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, S.W, S.H);
+    drawGrid();
+    drawThreads();
+    drawBodies();
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ============================================================
+   5. INPUT — orbit / pan+zoom (2 pointers) / drag a body
+   ============================================================ */
+const pointers = new Map();
+let dragBody = null, tapCandidate = null, moved = 0, pinchDist = null, pinchMid = null;
+
+function pick(sx, sy){
+  let best = null, bestD = 1e9;
+  for (const e of S.els){
+    if (e._sz === undefined || e._sz < 0) continue;
+    const dx = sx - e._sx, dy = sy - e._sy;
+    const d = Math.hypot(dx, dy);
+    const r = Math.max(18, e._size * 0.62);
+    if (d < r && e._sz < bestD){ best = e; bestD = e._sz; }
+  }
+  return best;
+}
+function midOf(){
+  const pts = [...pointers.values()];
+  return { x:(pts[0].x+pts[1].x)/2, y:(pts[0].y+pts[1].y)/2 };
+}
+function distOf(){
+  const pts = [...pointers.values()];
+  return Math.hypot(pts[0].x-pts[1].x, pts[0].y-pts[1].y);
+}
+
+cv.addEventListener("pointerdown", ev => {
+  cv.setPointerCapture(ev.pointerId);
+  pointers.set(ev.pointerId, {x:ev.clientX, y:ev.clientY});
+  S.anim = null;
+
+  if (pointers.size === 1){
+    moved = 0;
+    const hit = (!S.contemplate) ? pick(ev.clientX, ev.clientY) : null;
+    tapCandidate = hit;
+    dragBody = (hit && S.canWrite) ? hit : null;
+    cv.classList.add("dragging");
+  } else if (pointers.size === 2){
+    dragBody = null; tapCandidate = null;
+    pinchDist = distOf(); pinchMid = midOf();
+  }
+});
+
+cv.addEventListener("pointermove", ev => {
+  if (!pointers.has(ev.pointerId)){
+    if (!S.contemplate){
+      const h = pick(ev.clientX, ev.clientY);
+      if ((h && h.id) !== (S.hover && S.hover.id)){ S.hover = h; needsDraw = true; }
+      cv.classList.toggle("over", !!h);
+    }
+    return;
+  }
+  const prev = pointers.get(ev.pointerId);
+  const dx = ev.clientX - prev.x, dy = ev.clientY - prev.y;
+  pointers.set(ev.pointerId, {x:ev.clientX, y:ev.clientY});
+  moved += Math.abs(dx) + Math.abs(dy);
+
+  if (pointers.size >= 2){
+    const nd = distOf(), nm = midOf();
+    if (pinchDist){
+      const zf = pinchDist / nd;
+      S.cam.dist = Math.max(4, Math.min(260, S.cam.dist * zf));
+    }
+    if (pinchMid){
+      pan(nm.x - pinchMid.x, nm.y - pinchMid.y);
+    }
+    pinchDist = nd; pinchMid = nm;
+    needsDraw = true;
+  } else if (dragBody && moved > 6){
+    const z0 = worldPos(dragBody).z;
+    const w = screenToGround(ev.clientX, ev.clientY, z0);
+    if (w){ dragBody.x = w.x; dragBody.y = w.y; needsDraw = true; }
+  } else if (!dragBody){
+    S.cam.yaw -= dx * 0.0044;
+    S.cam.elev = Math.max(-ELEV_LIMIT, Math.min(ELEV_LIMIT, S.cam.elev + dy * 0.0044));
+    needsDraw = true;
+  }
+});
+
+function pan(dx, dy){
+  const scale = S.cam.dist / S.focal;
+  S.cam.x -= right[0]*dx*scale - up[0]*dy*scale;
+  S.cam.y -= right[1]*dx*scale - up[1]*dy*scale;
+  S.cam.z -= right[2]*dx*scale - up[2]*dy*scale;
+}
+
+function endPointer(ev){
+  const had = pointers.has(ev.pointerId);
+  pointers.delete(ev.pointerId);
+  if (pointers.size < 2){ pinchDist = null; pinchMid = null; }
+  if (!had) return;
+
+  if (pointers.size === 0){
+    cv.classList.remove("dragging");
+    if (S.contemplate){
+      if (moved < 7) exitContemplate();
+    } else if (moved < 7 && tapCandidate){
+      openDetail(tapCandidate);
+    } else if (dragBody && moved >= 7){
+      saveMove(dragBody);
+    }
+    dragBody = null; tapCandidate = null;
+  }
+}
+cv.addEventListener("pointerup", endPointer);
+cv.addEventListener("pointercancel", endPointer);
+
+cv.addEventListener("wheel", ev => {
+  ev.preventDefault();
+  S.anim = null;
+  zoomBy(ev.deltaY > 0 ? 1.12 : 0.89);
+}, {passive:false});
+
+function zoomBy(f){
+  S.cam.dist = Math.max(4, Math.min(260, S.cam.dist * f));
+  needsDraw = true;
+}
+$("#zoomin").onclick  = () => zoomBy(0.8);
+$("#zoomout").onclick = () => zoomBy(1.25);
+$("#up").onclick   = () => flyTo({ z: S.cam.z + S.cam.dist*0.5 }, 380);
+$("#down").onclick = () => flyTo({ z: S.cam.z - S.cam.dist*0.5 }, 380);
+$("#recenter").onclick = () => flyTo({ x:0, y:0, z:0, yaw:0, elev:0.55, dist:26 }, 650);
+
+function flyToBody(e){
+  flyTo({ x: e.x, y: e.y, z: heightAt(e.x,e.y), dist: Math.min(S.cam.dist, 15) }, 600);
+}
+
+window.addEventListener("resize", () => { resize(); needsDraw = true; });
+
+/* ============================================================
+   6. CONTEMPLATE MODE — a pure, unlabeled view of the space
+   ============================================================ */
+function enterContemplate(){
+  S.contemplate = true;
+  S.hover = null;
+  document.body.classList.add("contemplate");
+  closeDetail();
+  needsDraw = true;
+}
+function exitContemplate(){
+  S.contemplate = false;
+  document.body.classList.remove("contemplate");
+  needsDraw = true;
+}
+$("#contemplatebtn").onclick = enterContemplate;
+$("#ambientexit").onclick = exitContemplate;
+
+/* ---- Find: a searchable directory of every body, for when the
+   fabric gets crowded and flying around to find one gets slow ---- */
+function openList(){
+  $("#scrim").classList.add("open");
+  $("#listpanel").classList.add("open");
+  $("#lp-search").value = "";
+  renderList("");
+  setTimeout(() => $("#lp-search").focus(), 60);
+}
+function closeList(){
+  $("#scrim").classList.remove("open");
+  $("#listpanel").classList.remove("open");
+}
+function renderList(q){
+  const wrap = $("#lp-list"); wrap.textContent = "";
+  const needle = q.trim().toLowerCase();
+  const rows = S.els
+    .filter(e => !needle || (e.title || "").toLowerCase().indexOf(needle) !== -1)
+    .sort((a,b) => (a.title||"").localeCompare(b.title||""));
+  if (!rows.length){
+    const d = document.createElement("div"); d.className = "lp-empty";
+    d.textContent = S.els.length ? "Nothing matches that." : "Nothing placed yet.";
+    wrap.appendChild(d); return;
+  }
+  for (const e of rows){
+    const b = document.createElement("button");
+    b.className = "lp-row";
+    const links = e._links.filter(t => S.byTitle.has(t)).length;
+    b.innerHTML = "";
+    const g = document.createElement("div"); g.className = "glyph"; g.textContent = e.emoji || "✦";
+    const info = document.createElement("div"); info.className = "info";
+    const name = document.createElement("div"); name.className = "name"; name.textContent = e.title || "untitled";
+    const tag = document.createElement("div"); tag.className = "tag";
+    tag.textContent = (e.floatMode ? "floating" : "anchored") + (links ? " · " + links + (links===1?" thread":" threads") : "");
+    info.appendChild(name); info.appendChild(tag);
+    b.appendChild(g); b.appendChild(info);
+    b.onclick = () => { closeList(); openDetail(e); flyToBody(e); };
+    wrap.appendChild(b);
+  }
+}
+$("#listbtn").onclick = openList;
+$("#lp-close").onclick = closeList;
+$("#lp-search").addEventListener("input", ev => renderList(ev.target.value));
+$("#scrim").addEventListener("click", () => { if ($("#listpanel").classList.contains("open")) closeList(); });
+
+/* ============================================================
+   7. TEXT: [[wiki links]] and bare URLs, parsed at render time
+   ============================================================ */
+const WIKI = /\[\[([^\]\n]{1,80})\]\]/g;
+const URLRE = /(https?:\/\/[^\s<>"')\]]+)/g;
+
+function linksIn(text){
+  const out = [];
+  if (!text) return out;
+  let m; WIKI.lastIndex = 0;
+  while ((m = WIKI.exec(text))){
+    const key = m[1].trim().toLowerCase();
+    if (key && out.indexOf(key) === -1) out.push(key);
+  }
+  return out;
+}
+
+function renderRich(text, into){
+  into.textContent = "";
+  if (!text) return;
+  let last = 0, m;
+  WIKI.lastIndex = 0;
+  const pieces = [];
+  while ((m = WIKI.exec(text))){
+    if (m.index > last) pieces.push({t:"text", v:text.slice(last, m.index)});
+    pieces.push({t:"wiki", v:m[1].trim()});
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) pieces.push({t:"text", v:text.slice(last)});
+
+  for (const p of pieces){
+    if (p.t === "wiki"){
+      const target = S.byTitle.get(p.v.toLowerCase());
+      const b = document.createElement("button");
+      b.className = "wikilink" + (target ? "" : " dead");
+      b.textContent = p.v;
+      if (target){ b.onclick = () => { openDetail(target); flyToBody(target); }; }
+      else b.title = "Nothing in the fabric is called that — yet";
+      into.appendChild(b);
+    } else {
+      let l = 0, um; URLRE.lastIndex = 0;
+      while ((um = URLRE.exec(p.v))){
+        if (um.index > l) into.appendChild(document.createTextNode(p.v.slice(l, um.index)));
+        const a = document.createElement("a");
+        a.href = um[1]; a.target = "_blank"; a.rel = "noopener noreferrer";
+        a.textContent = clip(um[1], 52);
+        into.appendChild(a);
+        l = um.index + um[1].length;
+      }
+      if (l < p.v.length) into.appendChild(document.createTextNode(p.v.slice(l)));
+    }
+  }
+}
+
+/* ============================================================
+   8. DETAIL PANEL
+   ============================================================ */
+function openDetail(e){
+  S.open = e; needsDraw = true;
+  $("#d-glyph").textContent = e.emoji || "✦";
+  $("#d-title").textContent = e.title || "Untitled";
+
+  const meta = $("#d-meta");
+  const who = (S.profiles[e.authorId] && S.profiles[e.authorId].name) || "";
+  const when = e.createdAt ? new Date(e.createdAt).toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"}) : "";
+  meta.textContent = [who ? "placed by " + who : "", when].filter(Boolean).join(" · ");
+
+  const media = $("#d-media"); media.textContent = "";
+  if (e.assetId){
+    const src = publicUrl(e.assetId);
+    const t = e.assetType || "";
+    if (t.indexOf("image/") === 0){
+      const im = document.createElement("img"); im.className = "media"; im.src = src; im.alt = e.title || "";
+      media.appendChild(im);
+    } else if (t.indexOf("video/") === 0){
+      const v = document.createElement("video"); v.className = "media"; v.src = src; v.controls = true; v.playsInline = true;
+      media.appendChild(v);
+    } else if (t === "application/pdf"){
+      const a = document.createElement("a"); a.href = src; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Open the PDF ↗";
+      media.appendChild(a); media.appendChild(document.createElement("br"));
+    }
+  }
+  if (e.url){
+    const t = e.url.toLowerCase();
+    if (/\.(mp3|wav|ogg|m4a|aac|flac)(\?|$)/.test(t)){
+      const au = document.createElement("audio"); au.className = "media"; au.src = e.url; au.controls = true;
+      media.appendChild(au);
+    } else {
+      const a = document.createElement("a"); a.href = e.url; a.target = "_blank"; a.rel = "noopener noreferrer";
+      a.textContent = clip(e.url, 60) + " ↗";
+      const wrap = document.createElement("div"); wrap.style.marginBottom = "14px"; wrap.appendChild(a);
+      media.appendChild(wrap);
+    }
+  }
+
+  renderRich(e.desc, $("#d-desc"));
+
+  const mine = (e.title || "").toLowerCase();
+  const back = S.els.filter(o => o.id !== e.id && o._links.indexOf(mine) !== -1);
+  const bl = $("#d-backlinks"), list = $("#d-backlist");
+  list.textContent = "";
+  if (back.length && mine){
+    bl.style.display = "";
+    for (const b of back){
+      const btn = document.createElement("button");
+      btn.className = "wikilink"; btn.textContent = (b.emoji || "✦") + " " + (b.title || "untitled");
+      btn.onclick = () => { openDetail(b); flyToBody(b); };
+      list.appendChild(btn);
+    }
+  } else bl.style.display = "none";
+
+  const act = $("#d-actions"); act.textContent = "";
+  if (S.canWrite){
+    const ed = document.createElement("button");
+    ed.className = "ghost"; ed.textContent = "Edit";
+    ed.onclick = () => openCompose(e);
+    act.appendChild(ed);
+  }
+  const fly = document.createElement("button");
+  fly.className = "ghost"; fly.textContent = "Fly here";
+  fly.onclick = () => flyToBody(e);
+  act.appendChild(fly);
+
+  $("#detail").classList.add("open");
+  $("#detail").setAttribute("aria-hidden","false");
+}
+function closeDetail(){
+  $("#detail").classList.remove("open");
+  $("#detail").setAttribute("aria-hidden","true");
+  S.open = null; needsDraw = true;
+}
+$("#d-close").onclick = closeDetail;
+document.addEventListener("keydown", ev => {
+  if (ev.key === "Escape"){
+    if ($("#compose").classList.contains("open")) closeCompose();
+    else if (S.contemplate) exitContemplate();
+    else closeDetail();
+  }
+});
+
+/* ============================================================
+   9. COMPOSE / EDIT
+   ============================================================ */
+let pickedEmoji = "✦", pickedFile = null, pickedFace = "emoji", pickedFloat = false;
+
+function isVideoType(t){ return !!t && t.indexOf("video/") === 0; }
+
+function currentAttachmentKind(){
+  if (pickedFile){
+    const t = pickedFile.type || typeFor(pickedFile) || "";
+    if (t.indexOf("image/") === 0) return "image";
+    if (t.indexOf("video/") === 0) return "video";
+    return null;
+  }
+  if (S.editing && S.editing.assetType){
+    if (isImageType(S.editing.assetType)) return "image";
+    if (isVideoType(S.editing.assetType)) return "video";
+  }
+  return null;
+}
+function availableFaces(){
+  const kind = currentAttachmentKind();
+  const opts = [{ id: "emoji", label: (pickedEmoji || "✦") + "  Emoji" }];
+  if (kind === "image") opts.push({ id: "image", label: "🖼  Image" });
+  if (kind === "video") opts.push({ id: "video", label: "🎬  Video" });
+  opts.push({ id: "text", label: "🔤  Text" });
+  return opts;
+}
+function paintFace(){
+  const row = $("#c-faceoptions"); row.textContent = "";
+  const opts = availableFaces();
+  if (!opts.some(o => o.id === pickedFace)) pickedFace = opts[0].id;
+  for (const o of opts){
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = o.label; b.style.flex = "1 1 0";
+    b.className = o.id === pickedFace ? "primary" : "ghost";
+    b.onclick = () => { pickedFace = o.id; paintFace(); };
+    row.appendChild(b);
+  }
+}
+function paintFloatMode(){
+  $("#c-anchored").classList.toggle("primary", !pickedFloat);
+  $("#c-anchored").classList.toggle("ghost", pickedFloat);
+  $("#c-floating").classList.toggle("primary", pickedFloat);
+  $("#c-floating").classList.toggle("ghost", !pickedFloat);
+  $("#c-anchoredrow").style.display = pickedFloat ? "none" : "";
+  $("#c-floatrow").style.display = pickedFloat ? "" : "none";
+  $("#c-modenote").textContent = pickedFloat
+    ? "It drifts in a slow loop near where you drop it, independent of the fabric — everyone sees the same motion."
+    : "Anchored things rest on the sheet and bend it. Floating things drift nearby instead, like a moon.";
+}
+document.addEventListener("DOMContentLoaded", () => {}); // no-op, keeps order clear
+
+function buildEmojiRow(){
+  const row = $("#c-emojis"); row.textContent = "";
+  for (const em of EMOJIS){
+    const b = document.createElement("button");
+    b.textContent = em; b.type = "button";
+    b.onclick = () => { pickedEmoji = em; paintEmoji(); };
+    row.appendChild(b);
+  }
+  const custom = document.createElement("input");
+  custom.type = "text"; custom.maxLength = 4; custom.placeholder = "＋";
+  custom.id = "c-customemoji";
+  custom.oninput = () => { if (custom.value.trim()){ pickedEmoji = custom.value.trim(); paintEmoji(); } };
+  row.appendChild(custom);
+}
+function paintEmoji(){
+  for (const b of $("#c-emojis").querySelectorAll("button"))
+    b.classList.toggle("on", b.textContent === pickedEmoji);
+}
+
+function openCompose(existing){
+  S.editing = existing || null;
+  $("#c-heading").textContent = existing ? "Reshape this body" : "Place something in the fabric";
+  $("#c-save").textContent = existing ? "Save" : "Place it";
+  $("#c-title").value = existing ? (existing.title || "") : "";
+  $("#c-desc").value  = existing ? (existing.desc || "") : "";
+  $("#c-url").value   = existing ? (existing.url || "") : "";
+  $("#c-mass").value  = existing ? existing.mass : 2.5;
+  $("#c-size").value  = existing ? sizeOf(existing) : 1.4;
+  $("#c-drift").value = existing ? (existing.driftRadius || 2.5) : 2.5;
+  $("#c-alt").value   = existing ? (existing.driftAlt || 4) : 4;
+  pickedEmoji = existing ? (existing.emoji || "✦") : "✦";
+  pickedFile = null;
+  pickedFace = existing ? (existing.face || (isImageType(existing.assetType) ? "image" : "emoji")) : "emoji";
+  pickedFloat = existing ? !!existing.floatMode : false;
+  paintEmoji(); paintMass(); paintSize(); paintFace(); paintFloatMode(); paintDrift(); paintAlt();
+  $("#c-filechip").textContent = existing && existing.assetId ? "Keeping the file already attached" : "";
+  $("#c-err").style.display = "none";
+  $("#c-delete").style.display = existing ? "" : "none";
+  $("#c-choosefile").style.display = S.canUpload ? "" : "none";
+  $("#scrim").classList.add("open");
+  $("#compose").classList.add("open");
+  setTimeout(() => $("#c-title").focus(), 60);
+}
+function closeCompose(){
+  $("#scrim").classList.remove("open");
+  $("#compose").classList.remove("open");
+  $("#linkmenu").classList.remove("open");
+  S.editing = null;
+}
+function paintMass(){ $("#c-massval").textContent = "×" + (+$("#c-mass").value).toFixed(1); }
+function paintSize(){ $("#c-sizeval").textContent = "×" + (+$("#c-size").value).toFixed(1); }
+function paintDrift(){ $("#c-driftval").textContent = (+$("#c-drift").value).toFixed(1); }
+function paintAlt(){ $("#c-altval").textContent = (+$("#c-alt").value).toFixed(1); }
+$("#c-mass").oninput = paintMass;
+$("#c-size").oninput = paintSize;
+$("#c-drift").oninput = paintDrift;
+$("#c-alt").oninput = paintAlt;
+$("#c-anchored").onclick = () => { pickedFloat = false; paintFloatMode(); };
+$("#c-floating").onclick = () => { pickedFloat = true;  paintFloatMode(); };
+
+$("#addbtn").onclick = () => openCompose(null);
+$("#c-cancel").onclick = closeCompose;
+$("#scrim").onclick = closeCompose;
+$("#c-choosefile").onclick = () => $("#filepick").click();
+$("#filepick").onchange = ev => {
+  const f = ev.target.files && ev.target.files[0];
+  if (!f) return;
+  pickedFile = f;
+  $("#c-filechip").textContent = "📎 " + clip(f.name, 34) + "  ·  " + (f.size/1048576).toFixed(1) + " MB";
+  if (currentAttachmentKind()) pickedFace = currentAttachmentKind();
+  paintFace();
+};
+
+$("#c-insertlink").onclick = ev => {
+  const menu = $("#linkmenu");
+  menu.textContent = "";
+  const others = S.els.filter(e => e.title && (!S.editing || e.id !== S.editing.id));
+  if (!others.length){
+    const d = document.createElement("div");
+    d.style.cssText = "padding:9px;font-size:12px;color:var(--ink-dim)";
+    d.textContent = "Nothing else is out there yet.";
+    menu.appendChild(d);
+  }
+  for (const e of others.slice(0, 60)){
+    const b = document.createElement("button");
+    b.textContent = (e.emoji || "✦") + "  " + clip(e.title, 34);
+    b.onclick = () => { insertAtCursor($("#c-desc"), "[[" + e.title + "]]"); menu.classList.remove("open"); };
+    menu.appendChild(b);
+  }
+  const r = ev.currentTarget.getBoundingClientRect();
+  menu.style.left = r.left + "px";
+  menu.style.top  = (r.bottom + 6) + "px";
+  menu.classList.add("open");
+};
+document.addEventListener("click", ev => {
+  if (!$("#linkmenu").contains(ev.target) && ev.target !== $("#c-insertlink")) $("#linkmenu").classList.remove("open");
+}, true);
+
+$("#c-desc").addEventListener("input", ev => {
+  const v = ev.target.value, c = ev.target.selectionStart;
+  if (c >= 2 && v.slice(c-2, c) === "[["){ $("#c-insertlink").click(); }
+});
+
+function insertAtCursor(ta, text){
+  const s = ta.selectionStart, e = ta.selectionEnd;
+  let before = ta.value.slice(0, s);
+  if (before.slice(-2) === "[[") before = before.slice(0, -2);
+  ta.value = before + text + ta.value.slice(e);
+  const pos = before.length + text.length;
+  ta.focus(); ta.setSelectionRange(pos, pos);
+}
+
+$("#c-save").onclick = async () => {
+  const title = $("#c-title").value.trim();
+  const desc  = $("#c-desc").value;
+  const url   = $("#c-url").value.trim();
+  const mass  = +$("#c-mass").value;
+  const size  = +$("#c-size").value;
+  const err   = $("#c-err");
+  err.style.display = "none";
+
+  if (!title){ err.textContent = "Give it a title — that is also the name other people use to link to it."; err.style.display = ""; return; }
+  const clash = S.byTitle.get(title.toLowerCase());
+  if (clash && (!S.editing || clash.id !== S.editing.id)){
+    err.textContent = "Something out there already goes by that name. Links resolve by title, so pick another."; err.style.display = ""; return;
+  }
+
+  $("#c-save").disabled = true; $("#c-save").textContent = "…";
+  try {
+    let assetPath = S.editing ? S.editing.assetId : null;
+    let assetType = S.editing ? S.editing.assetType : null;
+
+    if (pickedFile){
+      const type = typeFor(pickedFile) || pickedFile.type;
+      const path = crypto.randomUUID() + "-" + pickedFile.name.replace(/[^a-zA-Z0-9_.-]/g, "_");
+      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, pickedFile, { contentType: type });
+      if (upErr) throw upErr;
+      assetPath = path; assetType = type;
+    }
+
+    const body = {
+      title, description: desc, url,
+      emoji: pickedEmoji || "✦",
+      mass: Math.max(0.3, Math.min(8, mass)),
+      size: Math.max(0.3, Math.min(6, size)),
+      face: pickedFace,
+      float_mode: pickedFloat,
+      drift_radius: Math.max(0.3, Math.min(10, +$("#c-drift").value)),
+      drift_alt: Math.max(-14, Math.min(20, +$("#c-alt").value)),
+      asset_path: assetPath || null,
+      asset_type: assetType || null
+    };
+
+    if (S.editing){
+      const { error } = await supabase.from("elements").update(body).eq("id", S.editing.id);
+      if (error) throw error;
+    } else {
+      const spot = freeSpot();
+      body.x = spot.x; body.y = spot.y;
+      body.author_id = S.me || null;
+      const { error } = await supabase.from("elements").insert([body]);
+      if (error) throw error;
+    }
+    closeCompose();
+    toast(S.editing ? "Reshaped." : "It has mass now.");
+    refetch();
+  } catch (e){
+    err.textContent = friendly(e);
+    err.style.display = "";
+  } finally {
+    $("#c-save").disabled = false;
+    $("#c-save").textContent = S.editing ? "Save" : "Place it";
+  }
+};
+
+$("#c-delete").onclick = async () => {
+  if (!S.editing) return;
+  const e = S.editing;
+  if (!confirm("Remove “" + (e.title||"this") + "” from the fabric? Links pointing at it go dead.")) return;
+  try {
+    const { error } = await supabase.from("elements").delete().eq("id", e.id);
+    if (error) throw error;
+    if (e.assetId){ try { await supabase.storage.from(BUCKET).remove([e.assetId]); } catch(_){} }
+    closeCompose(); closeDetail(); toast("Gone. Space flattens.");
+    refetch();
+  } catch(err){ toast(friendly(err)); }
+};
+
+function typeFor(f){
+  const ok = ["image/png","image/jpeg","image/gif","image/webp","image/svg+xml","video/mp4","video/webm","application/pdf"];
+  if (ok.indexOf(f.type) !== -1) return null;
+  const ext = (f.name.split(".").pop() || "").toLowerCase();
+  const map = {png:"image/png", jpg:"image/jpeg", jpeg:"image/jpeg", gif:"image/gif",
+               webp:"image/webp", svg:"image/svg+xml", mp4:"video/mp4", webm:"video/webm", pdf:"application/pdf"};
+  return map[ext] || null;
+}
+
+function friendly(e){
+  const msg = (e && e.message) || "";
+  if (/exceeded the maximum allowed size|too large/i.test(msg)) return "That file is over this bucket's size limit. Shrink it, or paste a link instead.";
+  if (/mime type|not allowed/i.test(msg)) return "That file type can't be stored here. Images, MP4, WebM and PDF work — for anything else (MP3 included) paste a URL.";
+  if (/row-level security|permission denied|JWT/i.test(msg)) return "You need to be signed in to do that — try refreshing and signing in again.";
+  if (/rate limit/i.test(msg)) return "Too fast. Wait a moment and try again.";
+  return msg || "Something went wrong.";
+}
+
+function freeSpot(){
+  for (let i = 0; i < 80; i++){
+    const a = Math.random()*6.2832, r = 3 + Math.random()*7;
+    const x = S.cam.x + Math.cos(a)*r, y = S.cam.y + Math.sin(a)*r;
+    let ok = true;
+    for (const e of S.els) if (Math.hypot(e.x-x, e.y-y) < 3.4){ ok = false; break; }
+    if (ok) return {x, y};
+  }
+  return {x: S.cam.x + (Math.random()-0.5)*12, y: S.cam.y + (Math.random()-0.5)*12};
+}
+
+let moveTimer = null;
+function saveMove(e){
+  clearTimeout(moveTimer);
+  moveTimer = setTimeout(() => {
+    supabase.from("elements").update({x: e.x, y: e.y}).eq("id", e.id)
+      .then(({error}) => { if (error) toast(friendly(error)); });
+  }, 260);
+}
+
+let toastTimer = null;
+function toast(msg){
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+/* ============================================================
+   10. DATA
+   ============================================================ */
+function ingest(rows){
+  const keepPos = new Map();
+  if (dragBody) keepPos.set(dragBody.id, {x:dragBody.x, y:dragBody.y});
+
+  S.els = rows.map(v => {
+    const el = {
+      id: v.id,
+      title: typeof v.title === "string" ? v.title : "",
+      desc: typeof v.description === "string" ? v.description : "",
+      emoji: typeof v.emoji === "string" ? v.emoji : "✦",
+      x: typeof v.x === "number" ? v.x : 0,
+      y: typeof v.y === "number" ? v.y : 0,
+      mass: typeof v.mass === "number" ? Math.max(0.2, Math.min(8, v.mass)) : 2.2,
+      size: typeof v.size === "number" ? Math.max(0.2, Math.min(6, v.size)) : 1.4,
+      assetId: typeof v.asset_path === "string" ? v.asset_path : null,
+      assetType: typeof v.asset_type === "string" ? v.asset_type : null,
+      face: typeof v.face === "string" ? v.face : (isImageType(v.asset_type) ? "image" : "emoji"),
+      floatMode: v.float_mode === true,
+      driftRadius: typeof v.drift_radius === "number" ? Math.max(0.3, Math.min(10, v.drift_radius)) : 2.5,
+      driftAlt: typeof v.drift_alt === "number" ? Math.max(-14, Math.min(20, v.drift_alt)) : 4,
+      url: typeof v.url === "string" ? v.url : "",
+      authorId: typeof v.author_id === "string" ? v.author_id : null,
+      createdAt: typeof v.created_at === "string" ? v.created_at : null
+    };
+    const kept = keepPos.get(el.id);
+    if (kept){ el.x = kept.x; el.y = kept.y; }
+    el._links = linksIn(el.desc);
+    return el;
+  });
+
+  S.hasFloaters = S.els.some(e => e.floatMode);
+  S.byId = new Map(S.els.map(e => [e.id, e]));
+  S.byTitle = new Map();
+  for (const e of S.els) if (e.title) S.byTitle.set(e.title.toLowerCase(), e);
+  if (dragBody) dragBody = S.byId.get(dragBody.id) || null;
+  if (S.open){
+    const again = S.byId.get(S.open.id);
+    if (again) { S.open = again; openDetail(again); } else closeDetail();
+  }
+  needsDraw = true;
+  paintStatus();
+  resolveNames();
+}
+
+async function refetch(){
+  const { data, error } = await supabase.from("elements").select("*");
+  if (!error) ingest(data || []);
+  else $("#status").textContent = "Lost the connection (" + error.message + ").";
+}
+
+function paintStatus(){
+  const n = S.els.length;
+  const threads = S.els.reduce((a,e) => a + e._links.filter(t => S.byTitle.has(t)).length, 0);
+  $("#status").textContent = n
+    ? n + (n===1 ? " body" : " bodies") + " · " + threads + (threads===1 ? " thread" : " threads")
+    : "Empty space. Place the first thing.";
+}
+
+async function resolveNames(){
+  // No profiles table in this setup, so "placed by" names are skipped —
+  // add a `profiles` table keyed by auth user id if you want names later.
+}
+
+/* ============================================================
+   11. AUTH GATE — sign in with a magic link before anything else
+   ============================================================ */
+let pendingEmail = "";
+
+function showGate(){ $("#gate").classList.remove("hidden"); }
+function hideGate(){ $("#gate").classList.add("hidden"); }
+
+$("#gate-send").onclick = async () => {
+  const email = $("#gate-email").value.trim();
+  const err = $("#gate-err"); err.style.display = "none";
+  if (!email || email.indexOf("@") === -1){ err.textContent = "That doesn't look like an email address."; err.style.display = ""; return; }
+  $("#gate-send").disabled = true; $("#gate-send").textContent = "Sending…";
+  try {
+    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href } });
+    if (error) throw error;
+    pendingEmail = email;
+    $("#gate-sentto").textContent = email;
+    $("#gate-step-email").style.display = "none";
+    $("#gate-step-sent").style.display = "";
+  } catch (e){
+    err.textContent = e.message || "Couldn't send the link — try again.";
+    err.style.display = "";
+  } finally {
+    $("#gate-send").disabled = false; $("#gate-send").textContent = "Send me a link";
+  }
+};
+$("#gate-back").onclick = () => {
+  $("#gate-step-sent").style.display = "none";
+  $("#gate-step-email").style.display = "";
+};
+
+/* ============================================================
+   12. BOOT
+   ============================================================ */
+resize();
+buildEmojiRow(); paintEmoji(); paintMass(); paintSize();
+requestAnimationFrame(frame);
+
+async function startApp(user){
+  hideGate();
+  S.me = user.id;
+  S.canWrite = true;
+  S.canUpload = true;
+  $("#addbtn").style.display = "";
+
+  await refetch();
+
+  if (dataChannel) supabase.removeChannel(dataChannel);
+  dataChannel = supabase
+    .channel("elements-changes")
+    .on("postgres_changes", { event: "*", schema: "public", table: "elements" }, () => refetch())
+    .subscribe();
+
+  const badge = $("#online"), n = $("#online-n");
+  badge.style.display = "";
+  if (presenceChannel) supabase.removeChannel(presenceChannel);
+  presenceChannel = supabase.channel("fabric-room", { config: { presence: { key: user.id } } });
+  presenceChannel.on("presence", { event: "sync" }, () => {
+    n.textContent = Object.keys(presenceChannel.presenceState()).length;
+  });
+  presenceChannel.subscribe(async (status) => {
+    badge.classList.toggle("off", status !== "SUBSCRIBED");
+    if (status === "SUBSCRIBED") await presenceChannel.track({ at: new Date().toISOString() });
+  });
+}
+
+(async function boot(){
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session && session.user){
+    await startApp(session.user);
+  } else {
+    showGate();
+  }
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === "SIGNED_IN" && session && session.user) startApp(session.user);
+    if (event === "SIGNED_OUT") { showGate(); if (dataChannel) supabase.removeChannel(dataChannel); if (presenceChannel) supabase.removeChannel(presenceChannel); }
+  });
+})();
+
+})();
+</script>
+</body>
+</html>
