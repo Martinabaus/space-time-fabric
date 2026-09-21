@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Fabric</title>
+<title> Space-Time Fabric</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
@@ -161,20 +162,28 @@ textarea{min-height:110px;resize:vertical;line-height:1.55}
 input[type=range]{accent-color:var(--accent);padding:0}
 #filepick{display:none}
 .filechip{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-dim);margin-top:8px}
+.media-row{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  background:rgba(255,255,255,.05);border:1px solid var(--edge);border-radius:8px;
+  padding:7px 8px 7px 11px;margin-top:7px;font-size:12.5px;
+}
+.media-row .mr-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.media-row button{padding:3px 9px;font-size:12px}
 .foot{display:flex;gap:9px;justify-content:flex-end;margin-top:22px;flex-wrap:wrap}
 .err{color:var(--danger);font-size:12px;margin-top:10px;line-height:1.5}
 .note{color:var(--ink-dim);font-size:11px;margin-top:7px;line-height:1.5}
 
 #listpanel{
-  position:fixed;z-index:25;left:50%;top:50%;transform:translate(-50%,-50%);
-  width:min(420px,calc(100% - 28px));max-height:min(74vh,620px);
-  background:var(--surface);border:1px solid var(--edge);border-radius:var(--r);
-  display:none;flex-direction:column;overflow:hidden;backdrop-filter:blur(18px);
+  position:fixed;z-index:22;top:0;left:0;height:100%;width:min(360px,100%);
+  background:var(--surface);border-right:1px solid var(--edge);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  transform:translateX(-102%);transition:transform .32s cubic-bezier(.2,.8,.2,1);
+  display:flex;flex-direction:column;overflow:hidden;
 }
-#listpanel.open{display:flex}
-#listpanel .lp-head{display:flex;gap:8px;align-items:center;padding:14px 14px 10px;border-bottom:1px solid var(--edge)}
+#listpanel.open{transform:none}
+#listpanel .lp-head{display:flex;gap:8px;align-items:center;padding:16px 14px 12px;border-bottom:1px solid var(--edge)}
 #listpanel .lp-head input{flex:1}
-#lp-list{overflow-y:auto;padding:8px}
+#lp-list{overflow-y:auto;padding:8px;flex:1;-webkit-overflow-scrolling:touch}
 .lp-row{
   display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:8px;cursor:pointer;text-align:left;
   width:100%;background:transparent;border:0;color:var(--ink);font:inherit;
@@ -214,7 +223,7 @@ input[type=range]{accent-color:var(--accent);padding:0}
 
 <div id="gate">
   <div id="gate-card">
-    <div class="brand" style="font-size:15px;margin-bottom:6px">The Space-Time Fabric</div>
+    <div class="brand" style="font-size:15px;margin-bottom:6px">The Fabric</div>
     <p>Pick your name and set a password the first time — after that, the same
     name and password gets you back in.</p>
     <select id="gate-name"></select>
@@ -228,7 +237,7 @@ input[type=range]{accent-color:var(--accent);padding:0}
 
 <div class="hud" id="topleft">
   <div class="brandrow">
-    <div class="brand">The Space-Time Fabric</div>
+    <div class="brand">The Fabric</div>
     <div id="online" style="display:none"><span class="dot"></span><span id="online-n">1</span> here now</div>
   </div>
   <div class="sub" id="status">Waking the grid…</div>
@@ -255,7 +264,7 @@ input[type=range]{accent-color:var(--accent);padding:0}
   <button class="primary" id="addbtn">+ Place something</button>
 </div>
 
-<button id="ambientexit">click to return</button>
+<button id="ambientexit">tap to return</button>
 
 <div id="detail" aria-hidden="true">
   <div class="head">
@@ -306,13 +315,13 @@ Type [[ to connect this to another body in the fabric. Paste links and they beco
   </div>
 
   <label class="f">Media</label>
+  <div id="c-medialist"></div>
   <div class="row">
-    <button class="ghost" id="c-choosefile" style="flex:0 0 auto">Choose file</button>
-    <input type="text" id="c-url" placeholder="…or paste a URL (video, sound, anything)">
+    <button class="ghost" id="c-addmedia" style="flex:0 0 auto">+ Add media</button>
+    <input type="text" id="c-url" placeholder="…or paste a URL (audio, anything)">
   </div>
-  <input type="file" id="filepick" accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.mp4,.webm,.pdf">
-  <div class="filechip" id="c-filechip"></div>
-  <div class="note">Images, MP4/WebM and PDF upload directly (50 MB limit). For MP3 or anything else, paste a URL instead.</div>
+  <input type="file" id="filepick" accept=".png,.jpg,.jpeg,.gif,.webp,.svg,.mp4,.webm,.pdf" multiple>
+  <div class="note">Images, MP4/WebM and PDF upload directly (up to your bucket's 50 MB limit each) — add as many as you like. For MP3 or anything else, paste a URL instead.</div>
 
   <div id="c-facerow">
     <label class="f">Show in space as</label>
@@ -322,26 +331,26 @@ Type [[ to connect this to another body in the fabric. Paste links and they beco
 
   <label class="f">How it sits in space</label>
   <div class="row" style="gap:8px">
-    <button type="button" class="ghost" id="c-anchored" style="flex:1 1 0">Anchored to the fabric</button>
-    <button type="button" class="ghost" id="c-floating" style="flex:1 1 0">Floating free</button>
+    <button type="button" class="ghost" id="c-anchored" style="flex:1 1 0">⚓ Anchored to the fabric</button>
+    <button type="button" class="ghost" id="c-floating" style="flex:1 1 0">✧ Floating free</button>
   </div>
-  <div class="note" id="c-modenote">Anchored things rest on the sheet and bend it. Floating things drift nearby instead.</div>
+  <div class="note" id="c-modenote">Anchored things rest on the sheet and bend it. Floating things drift nearby instead, like a moon.</div>
 
   <div id="c-anchoredrow">
-    <label class="f">Mass: how deeply it dents the fabric <span id="c-massval" style="color:var(--ink)"></span></label>
+    <label class="f">Mass — how deeply it dents the fabric <span id="c-massval" style="color:var(--ink)"></span></label>
     <input type="range" id="c-mass" min="0.3" max="8" step="0.1" value="2.5">
   </div>
 
   <div id="c-floatrow" style="display:none">
-    <label class="f">Drift radius: how far it wanders <span id="c-driftval" style="color:var(--ink)"></span></label>
+    <label class="f">Drift radius — how far it wanders <span id="c-driftval" style="color:var(--ink)"></span></label>
     <input type="range" id="c-drift" min="0.3" max="10" step="0.1" value="2.5">
-    <label class="f">Float height: how high above the sheet <span id="c-altval" style="color:var(--ink)"></span></label>
+    <label class="f">Float height — how high above the sheet <span id="c-altval" style="color:var(--ink)"></span></label>
     <input type="range" id="c-alt" min="-10" max="18" step="0.5" value="4">
   </div>
 
-  <label class="f">Size: how large it appears <span id="c-sizeval" style="color:var(--ink)"></span></label>
+  <label class="f">Size — how large it appears <span id="c-sizeval" style="color:var(--ink)"></span></label>
   <input type="range" id="c-size" min="0.3" max="6" step="0.1" value="1.4">
-  <div class="note">Mass and size are independent (a small thing can still bend the fabric a lot, or the reverse).</div>
+  <div class="note">Mass and size are independent — a small thing can still bend the fabric a lot, or the reverse.</div>
 
   <div class="err" id="c-err" style="display:none"></div>
 
@@ -362,7 +371,7 @@ Type [[ to connect this to another body in the fabric. Paste links and they beco
 /* ============================================================
    1. STATE
    ============================================================ */
-const EMOJIS = ["✦","🌍","🐬","✉️","☁️","🎧","📷","🎬","📄","🛠️","🌱","🔥","🪐","🎪","📻","🧭","🐚","🕯️","🎨","💬"];
+const EMOJIS = ["✦","🌍","🐬","✉️","☁️","🎧","📷","🎬","📄","🛠️","🌱","🥑","🔥","🪐","🎪","📻","🧭","🐚","🕯️","🎨","💬"];
 
 const S = {
   els: [],
@@ -385,8 +394,8 @@ const SUPABASE_KEY = "sb_publishable_dSNKVieNMTfHsvFs-dYk8w_Su4_xlTV";
 const BUCKET = "fabric-media";
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ---- Edit this list to match your classmates' names ----
-const CLASS_NAMES = ["Martina", "Rik", "Krishna", "Jihue", "Julia", "Manas", "Akanksha", "Rishika", "Dária", "Sadie", "Pedro", "Akshat", "Jiin", "Milla"];
+// ---- Edit this list to match classmates' names ----
+const CLASS_NAMES = ["Martina", "Julia", "Krishna", "Pedro", "Akanksha", "Manas", "Rishika", "Akshat", "Milla", "Jiin", "Jihue", "Dária", "Sadie", "Rik", ];
 // ----------------------------------------------------------
 
 function nameToEmail(name){
@@ -681,7 +690,7 @@ function drawBodies(){
       ctx.fillText(e.emoji || "✦", bx, by + br*0.05);
     }
 
-    if (!draw && e.face !== "text" && (e.assetId || e.url)){
+    if (!draw && e.face !== "text" && ((e.assets && e.assets.length) || e.url)){
       const br = Math.max(7, size*0.13);
       const bx = sx + size*0.32, by = sy - size*0.32;
       ctx.beginPath(); ctx.arc(bx, by, br, 0, 6.2832);
@@ -742,12 +751,19 @@ function getVideoThumb(id){
 }
 
 function faceDrawable(e){
-  if (e.face === "image" && e.assetId && isImageType(e.assetType)){
-    const im = getImage(e.assetId);
-    if (im.complete && im.naturalWidth) return { el: im, w: im.naturalWidth, h: im.naturalHeight };
-  } else if (e.face === "video" && e.assetId && isVideoType(e.assetType)){
-    const vt = getVideoThumb(e.assetId);
-    if (vt.ready) return { el: vt.canvas, w: vt.canvas.width, h: vt.canvas.height };
+  const assets = e.assets || [];
+  if (e.face === "image"){
+    const a = assets.find(x => isImageType(x.type));
+    if (a){
+      const im = getImage(a.path);
+      if (im.complete && im.naturalWidth) return { el: im, w: im.naturalWidth, h: im.naturalHeight };
+    }
+  } else if (e.face === "video"){
+    const a = assets.find(x => isVideoType(x.type));
+    if (a){
+      const vt = getVideoThumb(a.path);
+      if (vt.ready) return { el: vt.canvas, w: vt.canvas.width, h: vt.canvas.height };
+    }
   }
   return null;
 }
@@ -941,14 +957,12 @@ $("#ambientexit").onclick = exitContemplate;
 /* ---- Find: a searchable directory of every body, for when the
    fabric gets crowded and flying around to find one gets slow ---- */
 function openList(){
-  $("#scrim").classList.add("open");
   $("#listpanel").classList.add("open");
   $("#lp-search").value = "";
   renderList("");
   setTimeout(() => $("#lp-search").focus(), 60);
 }
 function closeList(){
-  $("#scrim").classList.remove("open");
   $("#listpanel").classList.remove("open");
 }
 function renderList(q){
@@ -981,7 +995,6 @@ function renderList(q){
 $("#listbtn").onclick = openList;
 $("#lp-close").onclick = closeList;
 $("#lp-search").addEventListener("input", ev => renderList(ev.target.value));
-$("#scrim").addEventListener("click", () => { if ($("#listpanel").classList.contains("open")) closeList(); });
 
 /* ============================================================
    7. TEXT: [[wiki links]] and bare URLs, parsed at render time
@@ -1051,18 +1064,20 @@ function openDetail(e){
   meta.textContent = [who ? "placed by " + who : "", when].filter(Boolean).join(" · ");
 
   const media = $("#d-media"); media.textContent = "";
-  if (e.assetId){
-    const src = publicUrl(e.assetId);
-    const t = e.assetType || "";
+  for (const a of (e.assets || [])){
+    const src = publicUrl(a.path);
+    const t = a.type || "";
     if (t.indexOf("image/") === 0){
-      const im = document.createElement("img"); im.className = "media"; im.src = src; im.alt = e.title || "";
+      const im = document.createElement("img"); im.className = "media"; im.src = src; im.alt = a.name || e.title || "";
       media.appendChild(im);
     } else if (t.indexOf("video/") === 0){
       const v = document.createElement("video"); v.className = "media"; v.src = src; v.controls = true; v.playsInline = true;
       media.appendChild(v);
-    } else if (t === "application/pdf"){
-      const a = document.createElement("a"); a.href = src; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Open the PDF ↗";
-      media.appendChild(a); media.appendChild(document.createElement("br"));
+    } else {
+      const link = document.createElement("a"); link.href = src; link.target = "_blank"; link.rel = "noopener";
+      link.textContent = "Open " + (a.name || (t === "application/pdf" ? "the PDF" : "file")) + " ↗";
+      const wrap = document.createElement("div"); wrap.style.marginBottom = "10px"; wrap.appendChild(link);
+      media.appendChild(wrap);
     }
   }
   if (e.url){
@@ -1126,28 +1141,40 @@ document.addEventListener("keydown", ev => {
 /* ============================================================
    9. COMPOSE / EDIT
    ============================================================ */
-let pickedEmoji = "✦", pickedFile = null, pickedFace = "emoji", pickedFloat = false;
+let pickedEmoji = "✦", pickedAttachments = [], removedPaths = [], pickedFace = "emoji", pickedFloat = false;
+
+function mediaIcon(t){
+  if (isImageType(t)) return "🖼";
+  if (isVideoType(t)) return "🎬";
+  if (t === "application/pdf") return "📄";
+  return "📎";
+}
+function paintMediaList(){
+  const wrap = $("#c-medialist"); wrap.textContent = "";
+  pickedAttachments.forEach((a, i) => {
+    const row = document.createElement("div"); row.className = "media-row";
+    const label = document.createElement("span"); label.className = "mr-name";
+    label.textContent = mediaIcon(a.type) + " " + clip(a.name || "file", 32);
+    const rm = document.createElement("button"); rm.type = "button"; rm.className = "ghost";
+    rm.textContent = "✕";
+    rm.onclick = () => {
+      if (!a._new && a.path) removedPaths.push(a.path);
+      pickedAttachments.splice(i, 1);
+      paintMediaList(); paintFace();
+    };
+    row.appendChild(label); row.appendChild(rm);
+    wrap.appendChild(row);
+  });
+}
 
 function isVideoType(t){ return !!t && t.indexOf("video/") === 0; }
 
-function currentAttachmentKind(){
-  if (pickedFile){
-    const t = pickedFile.type || typeFor(pickedFile) || "";
-    if (t.indexOf("image/") === 0) return "image";
-    if (t.indexOf("video/") === 0) return "video";
-    return null;
-  }
-  if (S.editing && S.editing.assetType){
-    if (isImageType(S.editing.assetType)) return "image";
-    if (isVideoType(S.editing.assetType)) return "video";
-  }
-  return null;
-}
 function availableFaces(){
-  const kind = currentAttachmentKind();
+  const hasImage = pickedAttachments.some(a => isImageType(a.type));
+  const hasVideo = pickedAttachments.some(a => isVideoType(a.type));
   const opts = [{ id: "emoji", label: (pickedEmoji || "✦") + "  Emoji" }];
-  if (kind === "image") opts.push({ id: "image", label: "🖼  Image" });
-  if (kind === "video") opts.push({ id: "video", label: "🎬  Video" });
+  if (hasImage) opts.push({ id: "image", label: "🖼  Image" });
+  if (hasVideo) opts.push({ id: "video", label: "🎬  Video" });
   opts.push({ id: "text", label: "🔤  Text" });
   return opts;
 }
@@ -1207,14 +1234,14 @@ function openCompose(existing){
   $("#c-drift").value = existing ? (existing.driftRadius || 2.5) : 2.5;
   $("#c-alt").value   = existing ? (existing.driftAlt || 4) : 4;
   pickedEmoji = existing ? (existing.emoji || "✦") : "✦";
-  pickedFile = null;
-  pickedFace = existing ? (existing.face || (isImageType(existing.assetType) ? "image" : "emoji")) : "emoji";
+  pickedAttachments = existing ? (existing.assets || []).map(a => ({ path:a.path, type:a.type, name:a.name, _new:false })) : [];
+  removedPaths = [];
+  pickedFace = existing ? (existing.face || "emoji") : "emoji";
   pickedFloat = existing ? !!existing.floatMode : false;
-  paintEmoji(); paintMass(); paintSize(); paintFace(); paintFloatMode(); paintDrift(); paintAlt();
-  $("#c-filechip").textContent = existing && existing.assetId ? "Keeping the file already attached" : "";
+  paintEmoji(); paintMass(); paintSize(); paintFace(); paintFloatMode(); paintDrift(); paintAlt(); paintMediaList();
   $("#c-err").style.display = "none";
   $("#c-delete").style.display = existing ? "" : "none";
-  $("#c-choosefile").style.display = S.canUpload ? "" : "none";
+  $("#c-addmedia").style.display = S.canUpload ? "" : "none";
   $("#scrim").classList.add("open");
   $("#compose").classList.add("open");
   setTimeout(() => $("#c-title").focus(), 60);
@@ -1239,13 +1266,18 @@ $("#c-floating").onclick = () => { pickedFloat = true;  paintFloatMode(); };
 $("#addbtn").onclick = () => openCompose(null);
 $("#c-cancel").onclick = closeCompose;
 $("#scrim").onclick = closeCompose;
-$("#c-choosefile").onclick = () => $("#filepick").click();
+$("#c-addmedia").onclick = () => $("#filepick").click();
 $("#filepick").onchange = ev => {
-  const f = ev.target.files && ev.target.files[0];
-  if (!f) return;
-  pickedFile = f;
-  $("#c-filechip").textContent = "📎 " + clip(f.name, 34) + "  ·  " + (f.size/1048576).toFixed(1) + " MB";
-  if (currentAttachmentKind()) pickedFace = currentAttachmentKind();
+  const files = Array.from(ev.target.files || []);
+  for (const f of files){
+    pickedAttachments.push({ file: f, name: f.name, type: typeFor(f) || f.type, _new: true });
+  }
+  ev.target.value = "";
+  paintMediaList();
+  if (pickedFace === "emoji"){
+    if (pickedAttachments.some(a => isImageType(a.type))) pickedFace = "image";
+    else if (pickedAttachments.some(a => isVideoType(a.type))) pickedFace = "video";
+  }
   paintFace();
 };
 
@@ -1305,16 +1337,14 @@ $("#c-save").onclick = async () => {
 
   $("#c-save").disabled = true; $("#c-save").textContent = "…";
   try {
-    let assetPath = S.editing ? S.editing.assetId : null;
-    let assetType = S.editing ? S.editing.assetType : null;
-
-    if (pickedFile){
-      const type = typeFor(pickedFile) || pickedFile.type;
-      const path = crypto.randomUUID() + "-" + pickedFile.name.replace(/[^a-zA-Z0-9_.-]/g, "_");
-      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, pickedFile, { contentType: type });
+    for (const a of pickedAttachments){
+      if (!a._new) continue;
+      const path = crypto.randomUUID() + "-" + a.name.replace(/[^a-zA-Z0-9_.-]/g, "_");
+      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, a.file, { contentType: a.type });
       if (upErr) throw upErr;
-      assetPath = path; assetType = type;
+      a.path = path; a._new = false;
     }
+    const assetsArr = pickedAttachments.map(a => ({ path: a.path, type: a.type, name: a.name }));
 
     const body = {
       title, description: desc, url,
@@ -1325,8 +1355,7 @@ $("#c-save").onclick = async () => {
       float_mode: pickedFloat,
       drift_radius: Math.max(0.3, Math.min(10, +$("#c-drift").value)),
       drift_alt: Math.max(-14, Math.min(20, +$("#c-alt").value)),
-      asset_path: assetPath || null,
-      asset_type: assetType || null
+      assets: assetsArr
     };
 
     if (S.editing){
@@ -1340,6 +1369,7 @@ $("#c-save").onclick = async () => {
       const { error } = await supabase.from("elements").insert([body]);
       if (error) throw error;
     }
+    if (removedPaths.length){ try { await supabase.storage.from(BUCKET).remove(removedPaths); } catch(_){} }
     closeCompose();
     toast(S.editing ? "Reshaped." : "It has mass now.");
     refetch();
@@ -1359,7 +1389,7 @@ $("#c-delete").onclick = async () => {
   try {
     const { error } = await supabase.from("elements").delete().eq("id", e.id);
     if (error) throw error;
-    if (e.assetId){ try { await supabase.storage.from(BUCKET).remove([e.assetId]); } catch(_){} }
+    if (e.assets && e.assets.length){ try { await supabase.storage.from(BUCKET).remove(e.assets.map(a => a.path)); } catch(_){} }
     closeCompose(); closeDetail(); toast("Gone. Space flattens.");
     refetch();
   } catch(err){ toast(friendly(err)); }
@@ -1426,8 +1456,9 @@ function ingest(rows){
       y: typeof v.y === "number" ? v.y : 0,
       mass: typeof v.mass === "number" ? Math.max(0.2, Math.min(8, v.mass)) : 2.2,
       size: typeof v.size === "number" ? Math.max(0.2, Math.min(6, v.size)) : 1.4,
-      assetId: typeof v.asset_path === "string" ? v.asset_path : null,
-      assetType: typeof v.asset_type === "string" ? v.asset_type : null,
+      assets: Array.isArray(v.assets) && v.assets.length
+        ? v.assets.filter(a => a && a.path)
+        : (typeof v.asset_path === "string" ? [{ path: v.asset_path, type: v.asset_type, name: "" }] : []),
       face: typeof v.face === "string" ? v.face : (isImageType(v.asset_type) ? "image" : "emoji"),
       floatMode: v.float_mode === true,
       driftRadius: typeof v.drift_radius === "number" ? Math.max(0.3, Math.min(10, v.drift_radius)) : 2.5,
@@ -1480,7 +1511,7 @@ async function resolveNames(){
    11. AUTH GATE — pick a name, set/enter a password
    The first time a name is used, this claims it (creates the
    account behind the scenes); after that, the same name+password
-   just logs back in. No email involved anywhere.
+   just logs back in. 
    ============================================================ */
 function showGate(){ $("#gate").classList.remove("hidden"); }
 function hideGate(){ $("#gate").classList.add("hidden"); }
